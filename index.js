@@ -7,7 +7,8 @@
 // var mysql = require('node-mysql');
 // ...
 
-
+var Vogels = require('vogels');
+var AWS = Vogels.AWS;
 
 /**
  * Sails Boilerplate Adapter
@@ -30,7 +31,7 @@ module.exports = (function () {
   // (aka model) that gets registered with this adapter.
   var _modelReferences = {};
 
-
+    var _definedTables = {};
   
   // You may also want to store additional, private data
   // per-collection (esp. if your data store uses persistent
@@ -65,12 +66,15 @@ module.exports = (function () {
     // Set to true if this adapter supports (or requires) things like data types, validations, keys, etc.
     // If true, the schema for models using this adapter will be automatically synced when the server starts.
     // Not terribly relevant if your data store is not SQL/schemaful.
-    syncable: false,
+    syncable: true,
 
 
     // Default configuration for collections
     // (same effect as if these properties were included at the top level of the model definitions)
     defaults: {
+	  accessKeyId: null
+	  , secretAccessKey: null
+	  , region: 'us-west-1'
 
       // For example:
       // port: 3306,
@@ -91,7 +95,8 @@ module.exports = (function () {
       // drop   => Drop schema and data, then recreate it
       // alter  => Drop/add columns as necessary.
       // safe   => Don't change anything (good for production DBs)
-      migrate: 'alter'
+      , migrate: 'alter'
+      , schema: true
     },
 
 
@@ -101,11 +106,14 @@ module.exports = (function () {
      * This method runs when a model is initially registered
      * at server-start-time.  This is the only required method.
      * 
-     * @param  {[type]}   collection [description]
+     * @param  string   collection [description]
      * @param  {Function} cb         [description]
      * @return {[type]}              [description]
      */
     registerCollection: function(collection, cb) {
+console.log("adapter::registerCollection:", collection);
+
+	  AWS.config.loadFromPath('./config.json');
 
       // Keep a reference to this collection
       _modelReferences[collection.identity] = collection;
@@ -139,12 +147,38 @@ module.exports = (function () {
      * @return {[type]}                  [description]
      */
     define: function(collectionName, definition, cb) {
+console.info("adaptor::define");
+console.info("collectionName", collectionName);
+console.info("definition", definition);
 
       // If you need to access your private data for this collection:
       var collection = _modelReferences[collectionName];
 
+        if(! _definedTables[collectionName] ){
+            var table = Vogels.define(collectionName, function (schema) {
+                schema.UUID('id', {hashKey: true});
+                schema.String('datas');
+                schema.Date('createdAt', {default: Date.now});
+                schema.Date('updatedAt', {default: Date.now});
+            });
+
+            _definedTables[collectionName] = table;
+            Vogels.createTables({
+                collectionName: {readCapacity: 1, writeCapacity: 1}
+            }, function (err) {
+                if(err) {
+                    console.log('Error creating tables', err);
+                } else {
+                    cb();
+                    console.log('table are now created and active');
+                }
+            });
+        }
+        else{
+            cb();
+        }
+
       // Define a new "table" or "collection" schema in the data store
-      cb();
     },
 
     /**
@@ -157,13 +191,30 @@ module.exports = (function () {
      * @return {[type]}                  [description]
      */
     describe: function(collectionName, cb) {
+console.info("adaptor::describe");
+console.info(collectionName);
 
       // If you need to access your private data for this collection:
       var collection = _modelReferences[collectionName];
 
       // Respond with the schema (attributes) for a collection or table in the data store
       var attributes = {};
-      cb(null, attributes);
+
+        // extremly simple table names
+        var tableName = collectionName.toLowerCase() + 's';
+        (new AWS.DynamoDB()).describeTable({TableName:tableName}, function(err, data){
+            if (err) {
+                if('code' in err && err['code'] === 'ResourceNotFoundException'){
+                    adapter.define(collectionName, collection.definition, function(){
+                        cb(null, attributes);
+                    });
+                }
+//                console.log(err); // an error occurred
+            } else {
+                cb(null, attributes);
+                console.log(data); // successful response
+            }
+        });
     },
 
 
@@ -179,9 +230,10 @@ module.exports = (function () {
      * @return {[type]}                  [description]
      */
     drop: function(collectionName, relations, cb) {
+console.info("adaptor::drop", collectionName);
       // If you need to access your private data for this collection:
       var collection = _modelReferences[collectionName];
-
+console.info('drop: not supported')
       // Drop a "table" or "collection" schema from the data store
       cb();
     },
@@ -215,6 +267,8 @@ module.exports = (function () {
      * @return {[type]}                  [description]
      */
     find: function(collectionName, options, cb) {
+console.info("adaptor::find", collectionName);
+console.info(collectionName, _definedTables[collectionName]);
 
       // If you need to access your private data for this collection:
       var collection = _modelReferences[collectionName];
@@ -224,12 +278,24 @@ module.exports = (function () {
       // options.where
       // options.limit
       // options.skip
-      // options.sort
+      // options.
       
       // Filter, paginate, and sort records from the datastore.
       // You should end up w/ an array of objects as a result.
       // If no matches were found, this will be an empty array.
 
+	if ('where' in options){
+	}
+	  
+	if ('limit' in options){
+	}
+	
+	if ('skip' in options){
+	}
+
+	if ('sort' in options){
+	}
+	  
       // Respond with an error, or the results.
       cb(null, []);
     },
@@ -244,6 +310,7 @@ module.exports = (function () {
      * @return {[type]}                  [description]
      */
     create: function(collectionName, values, cb) {
+console.info("adaptor::create", collectionName);
       // If you need to access your private data for this collection:
       var collection = _modelReferences[collectionName];
 
@@ -295,6 +362,7 @@ module.exports = (function () {
      * @return {[type]}                  [description]
      */
     destroy: function(collectionName, options, cb) {
+console.info("adaptor::destory", collectionName);
 
       // If you need to access your private data for this collection:
       var collection = _modelReferences[collectionName];
@@ -310,7 +378,7 @@ module.exports = (function () {
 
       // Return an error, otherwise it's declared a success.
       cb();
-    },
+    }
 
 
 
