@@ -22,9 +22,17 @@ Todo: to npm package
 
 The following config options are available along with their default values:
 
+config/adapters.js
 ```javascript
-config: {
-  TODO: "TODO"
+module.exports.adapters = {
+
+  // If you leave the adapter config unspecified 
+  // in a model definition, 'default' will be used.
+  'default': 'dynamodb',
+
+    dynamodb: {
+        module: 'sails-dynamodb'
+    },
 };
 ```
 
