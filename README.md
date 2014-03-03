@@ -3,16 +3,17 @@
 A [Waterline](https://github.com/balderdashy/waterline) adapter for DynamoDB. May be used in a [Sails](https://github.com/balderdashy/sails) app or anything using Waterline for the ORM.
 
 
-> _**Note:** This adapter is not support the Sails.js v0.10.x.
+> _**Note:** This adapter is not support the Sails.js v0.10.x. 
 
 ## Install
 
 Install is through NPM.
 
 ```bash
+$ sails new project && cd project
 $ git clone https://github.com/dohzoh/sails-dynamodb.git node_modules/sails-dynamodb
 $ cp node_modules/sails-dynamodb/config.json ./  # & put your amazon keys
-$ cd sails-dynamodb && npm install
+$ cd node_modules/sails-dynamodb && npm install && cd ../../
 ```
 Todo: to npm package
 
