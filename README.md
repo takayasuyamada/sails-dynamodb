@@ -1,6 +1,6 @@
 ![image_squidhome@2x.png](http://i.imgur.com/RIvu9.png) 
 
-# sails-adapter-boilerplate
+# sails-adapter-dynamodb
 
 This template exists to make it easier for you to get started writing an adapter for Sails.js.
 

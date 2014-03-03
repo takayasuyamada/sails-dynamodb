@@ -7,7 +7,8 @@
 // var mysql = require('node-mysql');
 // ...
 
-
+var Vogels = require('vogels');
+var AWS = Vogels.AWS;
 
 /**
  * Sails Boilerplate Adapter
@@ -30,9 +31,9 @@ module.exports = (function () {
   // (aka model) that gets registered with this adapter.
   var _modelReferences = {};
 
+    var _definedTables = {};
 
-  
-  // You may also want to store additional, private data
+    // You may also want to store additional, private data
   // per-collection (esp. if your data store uses persistent
   // connections).
   //
@@ -58,19 +59,21 @@ module.exports = (function () {
   // host OR database OR user OR password = separate pool.
   var _dbPools = {};
 
-
-
   var adapter = {
+    keyId: "id"
 
     // Set to true if this adapter supports (or requires) things like data types, validations, keys, etc.
     // If true, the schema for models using this adapter will be automatically synced when the server starts.
     // Not terribly relevant if your data store is not SQL/schemaful.
-    syncable: false,
+    , syncable: true,
 
 
     // Default configuration for collections
     // (same effect as if these properties were included at the top level of the model definitions)
     defaults: {
+	  accessKeyId: null
+	  , secretAccessKey: null
+	  , region: 'us-west-1'
 
       // For example:
       // port: 3306,
@@ -91,26 +94,46 @@ module.exports = (function () {
       // drop   => Drop schema and data, then recreate it
       // alter  => Drop/add columns as necessary.
       // safe   => Don't change anything (good for production DBs)
-      migrate: 'alter'
-    },
+      , migrate: 'alter'
+//      , schema: true
+    }
 
+    , _getModel: function(collectionName){
+          return Vogels.define(collectionName, function (schema) {
+//console.log("_getModel", collectionName);
+              var columns = global.Hook.models[collectionName].attributes;
 
+              schema.UUID( adapter.keyId, {hashKey: true});
+              schema.Date('createdAt', {default: Date.now});
+              schema.Date('updatedAt', {default: Date.now});
 
+              for(var columnName in columns){
+                  var attributes = columns[columnName];
+
+                  console.log(columnName, attributes);
+                  adapter._setColumnType(schema, columnName, attributes);
+              }
+          });
+    }
+
+    ,
     /**
      * 
      * This method runs when a model is initially registered
      * at server-start-time.  This is the only required method.
      * 
-     * @param  {[type]}   collection [description]
+     * @param  string   collection [description]
      * @param  {Function} cb         [description]
      * @return {[type]}              [description]
      */
     registerCollection: function(collection, cb) {
+//console.log("adapter::registerCollection:"/*, collection*/);
+
+	  AWS.config.loadFromPath('./config.json');
 
       // Keep a reference to this collection
       _modelReferences[collection.identity] = collection;
-      
-      cb();
+        cb();
     },
 
 
@@ -139,12 +162,37 @@ module.exports = (function () {
      * @return {[type]}                  [description]
      */
     define: function(collectionName, definition, cb) {
+//console.info("adaptor::define");
+//console.info("collectionName", collectionName);
+//console.info("definition", definition);
 
       // If you need to access your private data for this collection:
       var collection = _modelReferences[collectionName];
 
+        if(! _definedTables[collectionName] ){
+            var table = Vogels.define(collectionName, function (schema) {
+                schema.UUID('id', {hashKey: true});
+                schema.Date('createdAt', {default: Date.now});
+                schema.Date('updatedAt', {default: Date.now});
+            });
+
+            _definedTables[collectionName] = table;
+            Vogels.createTables({
+                collectionName: {readCapacity: 1, writeCapacity: 1}
+            }, function (err) {
+                if(err) {
+//                    console.log('Error creating tables', err);
+                } else {
+//                    console.log('table are now created and active');
+                    cb();
+                }
+            });
+        }
+        else{
+            cb();
+        }
+
       // Define a new "table" or "collection" schema in the data store
-      cb();
     },
 
     /**
@@ -157,13 +205,30 @@ module.exports = (function () {
      * @return {[type]}                  [description]
      */
     describe: function(collectionName, cb) {
+//console.info("adaptor::describe");
+//console.info(collectionName);
 
       // If you need to access your private data for this collection:
       var collection = _modelReferences[collectionName];
 
       // Respond with the schema (attributes) for a collection or table in the data store
       var attributes = {};
-      cb(null, attributes);
+
+        // extremly simple table names
+        var tableName = collectionName.toLowerCase() + 's';
+        (new AWS.DynamoDB()).describeTable({TableName:tableName}, function(err, res){
+            if (err) {
+                if('code' in err && err['code'] === 'ResourceNotFoundException'){
+                    adapter.define(collectionName, {}, function(){
+                        cb(null, attributes);
+                    });
+                }
+//                console.log(err); // an error occurred
+            } else {
+//                console.log(data); // successful response
+                cb(null, attributes);
+            }
+        });
     },
 
 
@@ -179,9 +244,10 @@ module.exports = (function () {
      * @return {[type]}                  [description]
      */
     drop: function(collectionName, relations, cb) {
+//console.info("adaptor::drop", collectionName);
       // If you need to access your private data for this collection:
       var collection = _modelReferences[collectionName];
-
+//console.warn('drop: not supported')
       // Drop a "table" or "collection" schema from the data store
       cb();
     },
@@ -215,7 +281,10 @@ module.exports = (function () {
      * @return {[type]}                  [description]
      */
     find: function(collectionName, options, cb) {
+//console.info("adaptor::find", collectionName);
+//console.info("::option", options);
 
+        var query = adapter._getModel(collectionName).scan();
       // If you need to access your private data for this collection:
       var collection = _modelReferences[collectionName];
 
@@ -224,16 +293,40 @@ module.exports = (function () {
       // options.where
       // options.limit
       // options.skip
-      // options.sort
+      // options.
       
       // Filter, paginate, and sort records from the datastore.
       // You should end up w/ an array of objects as a result.
       // If no matches were found, this will be an empty array.
 
-      // Respond with an error, or the results.
-      cb(null, []);
-    },
+	if ('where' in options){
+        for(var key in options['where']){
+//console.log(options['where'][key]);
+            query = query.where(key).contains(options['where'][key]);
+        }
 
+        query = adapter._searchCondition(query, options);
+	}
+    else{
+
+        query = adapter._searchCondition(query, options);
+    }
+
+        query.exec( function(err, res){
+           if(!err){
+//               console.log("success", res.Items[0].attrs);
+               cb(null, adapter._resultFormat(res));
+           }
+           else{
+               console.log(err);
+               cb(err);
+           }
+        });
+      // Respond with an error, or the results.
+//      cb(null, []);
+    }
+
+    ,
     /**
      *
      * REQUIRED method if users expect to call Model.create() or any methods
@@ -244,13 +337,25 @@ module.exports = (function () {
      * @return {[type]}                  [description]
      */
     create: function(collectionName, values, cb) {
+//console.info("adaptor::create", collectionName);
+//console.info("values", values);
+//console.log(collectionName, global.Hook.models[collectionName].attributes);
+        var Model = adapter._getModel(collectionName);
+
       // If you need to access your private data for this collection:
       var collection = _modelReferences[collectionName];
 
       // Create a single new model (specified by `values`)
-
-      // Respond with error or the newly-created record.
-      cb(null, values);
+        var current = Model.create(values, function(err, res){
+            if(err) {
+//                console.log('Error add model data', err);
+                cb(err);
+            } else {
+//                console.log('add model data',res.attrs);
+                // Respond with error or the newly-created record.
+                cb(null, res.attrs);
+            }
+        });
     },
 
 
@@ -269,9 +374,20 @@ module.exports = (function () {
      * @return {[type]}                  [description]
      */
     update: function(collectionName, options, values, cb) {
+//console.info("adaptor::update", collectionName);
+//console.info("options", options);
+//console.info("values", values);
+        var Model = adapter._getModel(collectionName);
 
       // If you need to access your private data for this collection:
       var collection = _modelReferences[collectionName];
+
+      // id filter (bug?)
+        if (adapter.keyId in values && typeof values[adapter.keyId] === 'number'){
+            if ('where' in options && adapter.keyId in options.where){
+                values[adapter.keyId] = options.where[adapter.keyId];
+            }
+        }
 
       // 1. Filter, paginate, and sort records from the datastore.
       //    You should end up w/ an array of objects as a result.
@@ -280,9 +396,19 @@ module.exports = (function () {
       // 2. Update all result records with `values`.
       // 
       // (do both in a single query if you can-- it's faster)
+        var current = Model.update(values, function(err, res){
+            if(err) {
+//                console.log('Error add model data', err);
+                cb(err);
+            } else {
+//                console.log('add model data',res.attrs);
+                // Respond with error or the newly-created record.
+                cb(null, [res.attrs]);
+            }
+        });
 
       // Respond with error or an array of updated records.
-      cb(null, []);
+//      cb(null, []);
     },
  
     /**
@@ -295,6 +421,9 @@ module.exports = (function () {
      * @return {[type]}                  [description]
      */
     destroy: function(collectionName, options, cb) {
+//console.info("adaptor::destory", collectionName);
+//console.info("options", options);
+        var Model = adapter._getModel(collectionName);
 
       // If you need to access your private data for this collection:
       var collection = _modelReferences[collectionName];
@@ -309,8 +438,23 @@ module.exports = (function () {
       // (do both in a single query if you can-- it's faster)
 
       // Return an error, otherwise it's declared a success.
-      cb();
-    },
+        if ('where' in options && adapter.keyId in options.where){
+            var values = {};
+            values[adapter.keyId] = options.where[adapter.keyId];
+            var current = Model.destroy(values, function(err, res){
+                if(err) {
+//                    console.log('Error add model data', err);
+                    cb(err);
+                } else {
+//                    console.log('add model data',res.attrs);
+                    // Respond with error or the newly-created record.
+                    cb();
+                }
+            });
+        }
+        else
+            cb();
+    }
 
 
 
@@ -403,6 +547,81 @@ module.exports = (function () {
 
     */
 
+      /**
+       * set column attributes
+       * @param schema  vogels::define return value
+       * @param name    column name
+       * @param attr    columns detail
+       * @private
+       */
+      , _setColumnType: function(schema, name, attr){
+          switch (attr.type.toLowerCase()){
+              case "date":
+              case "time":
+              case "datetime":
+//                  console.log("Set Date:", name);
+                  schema.Date(name);
+                  break;
+
+              case "integer":
+              case "float":
+//                  console.log("Set Number:", name);
+                  schema.Number(name);
+                  break;
+
+              case "boolean":
+//                  console.log("Set Boolean:", name);
+                  schema.Boolean(name);
+                  break;
+
+//              case "string":
+//              case "binary":
+//              case "array":   // not support
+//              case "json":
+              default:
+//                  console.log("Set String", name);
+                  schema.String(name);
+                  break;
+          }
+      }
+
+      /**
+       * From Object to Array
+       * @param results response data
+       * @returns {Array} replaced array
+       * @private
+       */
+      , _resultFormat: function(results){
+          var items = []
+
+          for(var i in results.Items){
+              items.push(results.Items[i].attrs);
+          }
+
+//console.log(items);
+          return items;
+      }
+
+      /**
+       * search condition
+       * @param query
+       * @param options
+       * @returns {*}
+       * @private
+       */
+      , _searchCondition: function(query, options){
+          if ('limit' in options){
+//            query = query.limit(1);
+          }
+
+          if ('skip' in options){
+          }
+
+          if ('sort' in options){
+          }
+
+          return query
+      }
 
   };
 
