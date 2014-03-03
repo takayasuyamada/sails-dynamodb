@@ -3,6 +3,8 @@
 A [Waterline](https://github.com/balderdashy/waterline) adapter for DynamoDB. May be used in a [Sails](https://github.com/balderdashy/sails) app or anything using Waterline for the ORM.
 
 
+> _**Note:** This adapter is not support the Sails.js v0.10.x.
+
 ## Install
 
 Install is through NPM.
