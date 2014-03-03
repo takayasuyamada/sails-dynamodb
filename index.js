@@ -32,8 +32,8 @@ module.exports = (function () {
   var _modelReferences = {};
 
     var _definedTables = {};
-  
-  // You may also want to store additional, private data
+
+    // You may also want to store additional, private data
   // per-collection (esp. if your data store uses persistent
   // connections).
   //
@@ -96,11 +96,27 @@ module.exports = (function () {
       // alter  => Drop/add columns as necessary.
       // safe   => Don't change anything (good for production DBs)
       , migrate: 'alter'
-      , schema: true
-    },
+//      , schema: true
+    }
 
+    , _getModel: function(collectionName){
+          return Vogels.define(collectionName, function (schema) {
+              var columns = global.Hook.models[collectionName].attributes;
 
+              schema.UUID('id', {hashKey: true});
+              schema.Date('createdAt', {default: Date.now});
+              schema.Date('updatedAt', {default: Date.now});
 
+              for(var columnName in columns){
+                  var attributes = columns[columnName];
+
+                  console.log(columnName, attributes);
+                  adapter._setColumnType(schema, columnName, attributes);
+              }
+          });
+    }
+
+    ,
     /**
      * 
      * This method runs when a model is initially registered
@@ -111,14 +127,13 @@ module.exports = (function () {
      * @return {[type]}              [description]
      */
     registerCollection: function(collection, cb) {
-console.log("adapter::registerCollection:", collection);
+console.log("adapter::registerCollection:"/*, collection*/);
 
 	  AWS.config.loadFromPath('./config.json');
 
       // Keep a reference to this collection
       _modelReferences[collection.identity] = collection;
-      
-      cb();
+        cb();
     },
 
 
@@ -157,7 +172,6 @@ console.info("definition", definition);
         if(! _definedTables[collectionName] ){
             var table = Vogels.define(collectionName, function (schema) {
                 schema.UUID('id', {hashKey: true});
-                schema.String('datas');
                 schema.Date('createdAt', {default: Date.now});
                 schema.Date('updatedAt', {default: Date.now});
             });
@@ -169,8 +183,8 @@ console.info("definition", definition);
                 if(err) {
                     console.log('Error creating tables', err);
                 } else {
-                    cb();
                     console.log('table are now created and active');
+                    cb();
                 }
             });
         }
@@ -202,17 +216,17 @@ console.info(collectionName);
 
         // extremly simple table names
         var tableName = collectionName.toLowerCase() + 's';
-        (new AWS.DynamoDB()).describeTable({TableName:tableName}, function(err, data){
+        (new AWS.DynamoDB()).describeTable({TableName:tableName}, function(err, res){
             if (err) {
                 if('code' in err && err['code'] === 'ResourceNotFoundException'){
-                    adapter.define(collectionName, collection.definition, function(){
+                    adapter.define(collectionName, {}, function(){
                         cb(null, attributes);
                     });
                 }
 //                console.log(err); // an error occurred
             } else {
+//                console.log(data); // successful response
                 cb(null, attributes);
-                console.log(data); // successful response
             }
         });
     },
@@ -311,13 +325,36 @@ console.info(collectionName, _definedTables[collectionName]);
      */
     create: function(collectionName, values, cb) {
 console.info("adaptor::create", collectionName);
+console.info("values", values);
+//console.log(collectionName, global.Hook.models[collectionName].attributes);
+
+/*
+        if(global.Hook.models){
+            console.log("Exists global.Hook.models");
+            var keyList = [];
+            for(var key in global.Hook.models){
+                keyList.push(key);
+            }
+
+            console.log("global.Hook.models Keys", keyList);
+        }
+*/
+        var Model = adapter._getModel(collectionName);
+
       // If you need to access your private data for this collection:
       var collection = _modelReferences[collectionName];
 
       // Create a single new model (specified by `values`)
-
-      // Respond with error or the newly-created record.
-      cb(null, values);
+        var current = Model.create({'data':JSON.stringify({abc:'def'})}, function(err, res){
+            if(err) {
+                console.log('Error add model data', err);
+                cb(err);
+            } else {
+                console.log('add model data',res.attrs);
+                // Respond with error or the newly-created record.
+                cb(null, res.attrs);
+            }
+        });
     },
 
 
@@ -336,6 +373,9 @@ console.info("adaptor::create", collectionName);
      * @return {[type]}                  [description]
      */
     update: function(collectionName, options, values, cb) {
+console.info("adaptor::update", collectionName);
+console.info("options", options);
+console.info("values", values);
 
       // If you need to access your private data for this collection:
       var collection = _modelReferences[collectionName];
@@ -471,7 +511,43 @@ console.info("adaptor::destory", collectionName);
 
     */
 
+      /**
+       * set column attributes
+       * @param schema  vogels::define return value
+       * @param name    column name
+       * @param attr    columns detail
+       * @private
+       */
+      , _setColumnType: function(schema, name, attr){
+          switch (attr.type.toLowerCase()){
+              case "date":
+              case "time":
+              case "datetime":
+                  console.log("Set Date:", name);
+                  schema.Date(name);
+                  break;
 
+              case "integer":
+              case "float":
+                  console.log("Set Number:", name);
+                  schema.Number(name);
+                  break;
+
+              case "boolean":
+                  console.log("Set Boolean:", name);
+                  schema.Boolean(name);
+                  break;
+
+//              case "string":
+//              case "binary":
+//              case "array":   // not support
+//              case "json":
+              default:
+                  console.log("Set String", name);
+                  schema.String(name);
+                  break;
+          }
+      }
   };
 
 
