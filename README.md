@@ -2,15 +2,7 @@
 
 # sails-adapter-dynamodb
 
-This template exists to make it easier for you to get started writing an adapter for Sails.js.
-
-> ### Generator now available
->
-> `$ sails generate adapter foo`
->
-> (see https://github.com/balderdashy/sails-generate-adapter for the source.)
-
-
+A [Waterline](https://github.com/balderdashy/waterline) adapter for DynamoDB. May be used in a [Sails](https://github.com/balderdashy/sails) app or anything using Waterline for the ORM.
 
 
 > ### WARNING
