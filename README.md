@@ -9,7 +9,7 @@ Install is through NPM.
 
 ```bash
 $ git clone https://github.com/dohzoh/sails-dynamodb.git node_modules/sails-dynamodb
-$ cp node_modules/sails-dynamodb/config.json ./
+$ cp node_modules/sails-dynamodb/config.json ./  # & put your amazon keys
 $ cd sails-dynamodb && npm install
 ```
 Todo: to npm package
