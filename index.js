@@ -74,7 +74,7 @@ module.exports = (function () {
 	  accessKeyId: null
 	  , secretAccessKey: null
 	  , region: 'us-west-1'
-
+        , credentialsFilePath: './config.json'
       // For example:
       // port: 3306,
       // host: 'localhost',
@@ -99,20 +99,31 @@ module.exports = (function () {
     }
 
     , _getModel: function(collectionName){
-          return Vogels.define(collectionName, function (schema) {
+        return Vogels.define(collectionName, function (schema) {
 //console.log("_getModel", collectionName);
-              var columns = global.Hook.models[collectionName].attributes;
+            var columns = global.Hook.models[collectionName].attributes;
+            var primaryKey = false;
+            // set columns
+            for(var columnName in columns){
+                var attributes = columns[columnName];
 
-              schema.UUID( adapter.keyId, {hashKey: true});
-              schema.Date('createdAt', {default: Date.now});
-              schema.Date('updatedAt', {default: Date.now});
+                console.log(columnName+":", attributes);
+                adapter._setColumnType(schema, columnName, attributes);
 
-              for(var columnName in columns){
-                  var attributes = columns[columnName];
+                // search primarykey
+                if(!primaryKey){
+                    if("primaryKey" in attributes)
+                        primaryKey = columnName;
+                }
+            }
 
-                  console.log(columnName, attributes);
-                  adapter._setColumnType(schema, columnName, attributes);
-              }
+              if(!primaryKey)
+                  schema.UUID( adapter.keyId, {hashKey: true});
+              else
+                  adapter._setColumnType(schema, primaryKey, columns[primaryKey], {hashKey: true});
+//                  schema.String( primaryKey, {hashKey: true});
+            schema.Date('createdAt', {default: Date.now});
+            schema.Date('updatedAt', {default: Date.now});
           });
     }
 
@@ -127,10 +138,48 @@ module.exports = (function () {
      * @return {[type]}              [description]
      */
     registerCollection: function(collection, cb) {
-//console.log("adapter::registerCollection:"/*, collection*/);
+//console.log("adapter::registerCollection:", collection);
+        AWS.config.loadFromPath('./config.json');
+/*
+ adapter::registerCollection: { keyId: 'id',
+ syncable: true,
+ defaults:
+ { accessKeyId: null,
+ secretAccessKey: null,
+ region: 'us-west-1',
+ migrate: 'alter',
+ adapter: 'sails-dynamodb' },
+ _getModel: [Function],
+ registerCollection: [Function],
+ teardown: [Function],
+ define: [Function],
+ describe: [Function],
+ drop: [Function],
+ find: [Function],
+ create: [Function],
+ update: [Function],
+ destroy: [Function],
+ _setColumnType: [Function],
+ _resultFormat: [Function],
+ _searchCondition: [Function],
+ config:
+ { accessKeyId: null,
+ secretAccessKey: null,
+ region: 'us-west-1',
+ migrate: 'alter',
+ adapter: 'sails-dynamodb' },
+ definition:
+ { id:
+ { type: 'integer',
+ autoIncrement: true,
+ defaultsTo: 'AUTO_INCREMENT',
+ primaryKey: true,
+ unique: true },
+ createdAt: { type: 'datetime', default: 'NOW' },
+ updatedAt: { type: 'datetime', default: 'NOW' } },
+ identity: 'user' }
 
-	  AWS.config.loadFromPath('./config.json');
-
+ */
       // Keep a reference to this collection
       _modelReferences[collection.identity] = collection;
         cb();
@@ -163,25 +212,23 @@ module.exports = (function () {
      */
     define: function(collectionName, definition, cb) {
 //console.info("adaptor::define");
-//console.info("collectionName", collectionName);
-//console.info("definition", definition);
+//console.info("::collectionName", collectionName);
+//console.info("::definition", definition);
+//console.info("::model", adapter._getModel(collectionName));
 
       // If you need to access your private data for this collection:
       var collection = _modelReferences[collectionName];
 
         if(! _definedTables[collectionName] ){
-            var table = Vogels.define(collectionName, function (schema) {
-                schema.UUID('id', {hashKey: true});
-                schema.Date('createdAt', {default: Date.now});
-                schema.Date('updatedAt', {default: Date.now});
-            });
+            var table = adapter._getModel(collectionName);
 
             _definedTables[collectionName] = table;
             Vogels.createTables({
                 collectionName: {readCapacity: 1, writeCapacity: 1}
             }, function (err) {
                 if(err) {
-//                    console.log('Error creating tables', err);
+                    console.warn('Error creating tables', err);
+                    cb(err);
                 } else {
 //                    console.log('table are now created and active');
                     cb();
@@ -215,13 +262,15 @@ module.exports = (function () {
       var attributes = {};
 
         // extremly simple table names
-        var tableName = collectionName.toLowerCase() + 's';
+        var tableName = collectionName.toLowerCase() + 's'; // 's' is vogels spec
         (new AWS.DynamoDB()).describeTable({TableName:tableName}, function(err, res){
             if (err) {
                 if('code' in err && err['code'] === 'ResourceNotFoundException'){
-                    adapter.define(collectionName, {}, function(){
-                        cb(null, attributes);
-                    });
+                    cb();
+                }
+                else{
+                    console.warn('Error describe tables'+__filename, err);
+                    cb(err);
                 }
 //                console.log(err); // an error occurred
             } else {
@@ -318,7 +367,7 @@ module.exports = (function () {
                cb(null, adapter._resultFormat(res));
            }
            else{
-               console.log(err);
+               console.warn('Error exec query'+__filename, err);
                cb(err);
            }
         });
@@ -348,7 +397,7 @@ module.exports = (function () {
       // Create a single new model (specified by `values`)
         var current = Model.create(values, function(err, res){
             if(err) {
-//                console.log('Error add model data', err);
+                console.warn('Error add data'+__filename, err);
                 cb(err);
             } else {
 //                console.log('add model data',res.attrs);
@@ -398,7 +447,7 @@ module.exports = (function () {
       // (do both in a single query if you can-- it's faster)
         var current = Model.update(values, function(err, res){
             if(err) {
-//                console.log('Error add model data', err);
+                console.warn('Error update data'+__filename, err);
                 cb(err);
             } else {
 //                console.log('add model data',res.attrs);
@@ -443,7 +492,7 @@ module.exports = (function () {
             values[adapter.keyId] = options.where[adapter.keyId];
             var current = Model.destroy(values, function(err, res){
                 if(err) {
-//                    console.log('Error add model data', err);
+                    console.warn('Error destory data'+__filename, err);
                     cb(err);
                 } else {
 //                    console.log('add model data',res.attrs);
@@ -554,24 +603,29 @@ module.exports = (function () {
        * @param attr    columns detail
        * @private
        */
-      , _setColumnType: function(schema, name, attr){
-          switch (attr.type.toLowerCase()){
+      , _setColumnType: function(schema, name, attr, options){
+          options = (typeof options !== 'undefined') ? options : {};
+
+          // set columns
+          var type = (!attr.type)?attr:attr.type;
+
+          switch (type){
               case "date":
               case "time":
               case "datetime":
 //                  console.log("Set Date:", name);
-                  schema.Date(name);
+                  schema.Date(name, options);
                   break;
 
               case "integer":
               case "float":
 //                  console.log("Set Number:", name);
-                  schema.Number(name);
+                  schema.Number(name, options);
                   break;
 
               case "boolean":
 //                  console.log("Set Boolean:", name);
-                  schema.Boolean(name);
+                  schema.Boolean(name, options);
                   break;
 
 //              case "string":
@@ -580,7 +634,7 @@ module.exports = (function () {
 //              case "json":
               default:
 //                  console.log("Set String", name);
-                  schema.String(name);
+                  schema.String(name, options);
                   break;
           }
       }
