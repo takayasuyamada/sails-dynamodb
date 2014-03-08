@@ -74,7 +74,7 @@ module.exports = (function () {
 	  accessKeyId: null
 	  , secretAccessKey: null
 	  , region: 'us-west-1'
-        , credentialsFilePath: './config.json'
+        , credentialsFilePath: './credentials.json'
       // For example:
       // port: 3306,
       // host: 'localhost',
@@ -139,7 +139,7 @@ module.exports = (function () {
      */
     registerCollection: function(collection, cb) {
 //console.log("adapter::registerCollection:", collection);
-        AWS.config.loadFromPath('./config.json');
+        AWS.config.loadFromPath('./credentials.json');
 /*
  adapter::registerCollection: { keyId: 'id',
  syncable: true,
