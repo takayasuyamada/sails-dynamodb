@@ -95,7 +95,7 @@ module.exports = (function () {
       // alter  => Drop/add columns as necessary.
       // safe   => Don't change anything (good for production DBs)
       , migrate: 'alter'
-//      , schema: true
+//      , schema: false
     }
 
     , _getModel: function(collectionName){
@@ -330,36 +330,46 @@ module.exports = (function () {
      * @return {[type]}                  [description]
      */
     find: function(collectionName, options, cb) {
-//console.info("adaptor::find", collectionName);
-//console.info("::option", options);
+console.info("adaptor::find", collectionName);
+console.info("::option", options);
 
-        var query = adapter._getModel(collectionName).scan();
-      // If you need to access your private data for this collection:
-      var collection = _modelReferences[collectionName];
+        // Options object is normalized for you:
+        //
+        // options.where
+        // options.limit
+        // options.skip
+        // options.
 
-      // Options object is normalized for you:
-      // 
-      // options.where
-      // options.limit
-      // options.skip
-      // options.
-      
-      // Filter, paginate, and sort records from the datastore.
-      // You should end up w/ an array of objects as a result.
-      // If no matches were found, this will be an empty array.
+        // Filter, paginate, and sort records from the datastore.
+        // You should end up w/ an array of objects as a result.
+        // If no matches were found, this will be an empty array.
 
-	if ('where' in options){
-        for(var key in options['where']){
-//console.log(options['where'][key]);
-            query = query.where(key).contains(options['where'][key]);
+        if ('limit' in options && options.limit < 2 ){
+            // query mode
+            // search primary key
+            for(var key in options.where){
+                var pValue = options.where[key];
+            }
+            var query = adapter._getModel(collectionName).query(pValue);
         }
+        else{
+        // scan mode
+            var query = adapter._getModel(collectionName).scan();
+            // If you need to access your private data for this collection:
+            var collection = _modelReferences[collectionName];
 
-        query = adapter._searchCondition(query, options);
-	}
-    else{
+            if ('where' in options){
+                for(var key in options['where']){
+                    //console.log(options['where'][key]);
+                    query = query.where(key).contains(options['where'][key]);
+                }
 
-        query = adapter._searchCondition(query, options);
-    }
+                query = adapter._searchCondition(query, options);
+            }
+            else{
+                query = adapter._searchCondition(query, options);
+            }
+        }
 
         query.exec( function(err, res){
            if(!err){
@@ -374,6 +384,26 @@ module.exports = (function () {
       // Respond with an error, or the results.
 //      cb(null, []);
     }
+      /**
+       * search condition
+       * @param query
+       * @param options
+       * @returns {*}
+       * @private
+       */
+      , _searchCondition: function(query, options){
+          if ('limit' in options){
+//            query = query.limit(1);
+          }
+
+          if ('skip' in options){
+          }
+
+          if ('sort' in options){
+          }
+
+          return query
+      }
 
     ,
     /**
@@ -386,9 +416,9 @@ module.exports = (function () {
      * @return {[type]}                  [description]
      */
     create: function(collectionName, values, cb) {
-//console.info("adaptor::create", collectionName);
-//console.info("values", values);
-//console.log(collectionName, global.Hook.models[collectionName].attributes);
+console.info("adaptor::create", collectionName);
+console.info("values", values);
+console.log(collectionName, global.Hook.models[collectionName].attributes);
         var Model = adapter._getModel(collectionName);
 
       // If you need to access your private data for this collection:
@@ -654,27 +684,6 @@ module.exports = (function () {
 
 //console.log(items);
           return items;
-      }
-
-      /**
-       * search condition
-       * @param query
-       * @param options
-       * @returns {*}
-       * @private
-       */
-      , _searchCondition: function(query, options){
-          if ('limit' in options){
-//            query = query.limit(1);
-          }
-
-          if ('skip' in options){
-          }
-
-          if ('sort' in options){
-          }
-
-          return query
       }
 
   };
