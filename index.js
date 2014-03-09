@@ -61,6 +61,7 @@ module.exports = (function () {
 
   var adapter = {
     keyId: "id"
+    , indexPrefix: "-Index"
 
     // Set to true if this adapter supports (or requires) things like data types, validations, keys, etc.
     // If true, the schema for models using this adapter will be automatically synced when the server starts.
@@ -103,25 +104,35 @@ module.exports = (function () {
 //console.log("_getModel", collectionName);
             var columns = global.Hook.models[collectionName].attributes;
             var primaryKey = false;
+            var indexes = [];
             // set columns
             for(var columnName in columns){
                 var attributes = columns[columnName];
 
-                console.log(columnName+":", attributes);
-                adapter._setColumnType(schema, columnName, attributes);
+//                console.log(columnName+":", attributes);
+                if(typeof attributes !== "function"){
+                    adapter._setColumnType(schema, columnName, attributes);
 
-                // search primarykey
-                if(!primaryKey){
-                    if("primaryKey" in attributes)
-                        primaryKey = columnName;
+                    // search primarykey
+                    if(!primaryKey){
+                        if("primaryKey" in attributes)
+                            primaryKey = columnName;
+                    }
+                    // search index
+                    if("index" in attributes) indexes.push(columnName);
                 }
             }
 
-              if(!primaryKey)
-                  schema.UUID( adapter.keyId, {hashKey: true});
-              else
-                  adapter._setColumnType(schema, primaryKey, columns[primaryKey], {hashKey: true});
+            if(!primaryKey)
+              schema.UUID( adapter.keyId, {hashKey: true});
+            else
+              adapter._setColumnType(schema, primaryKey, columns[primaryKey], {hashKey: true});
 //                  schema.String( primaryKey, {hashKey: true});
+            for(var i = 0; i < indexes.length; i++){
+                var key = indexes[i];
+                schema.globalIndex(key + adapter.indexPrefix, { hashKey: key});
+            }
+
             schema.Date('createdAt', {default: Date.now});
             schema.Date('updatedAt', {default: Date.now});
           });
