@@ -103,7 +103,7 @@ module.exports = (function () {
         return Vogels.define(collectionName, function (schema) {
 //console.log("_getModel", collectionName);
             var columns = global.Hook.models[collectionName].attributes;
-            var primaryKey = false;
+            var primaryKeys = []
             var indexes = [];
             // set columns
             for(var columnName in columns){
@@ -112,21 +112,23 @@ module.exports = (function () {
 //                console.log(columnName+":", attributes);
                 if(typeof attributes !== "function"){
                     adapter._setColumnType(schema, columnName, attributes);
-
                     // search primarykey
-                    if(!primaryKey){
-                        if("primaryKey" in attributes)
-                            primaryKey = columnName;
-                    }
+                    if("primaryKey" in attributes)primaryKeys.push( columnName );
                     // search index
                     if("index" in attributes) indexes.push(columnName);
                 }
             }
 
-            if(!primaryKey)
+            if(primaryKeys.length < 1)
               schema.UUID( adapter.keyId, {hashKey: true});
-            else
-              adapter._setColumnType(schema, primaryKey, columns[primaryKey], {hashKey: true});
+            else{
+                if(! require("underscore").isUndefined(primaryKeys[0])){
+                    adapter._setColumnType(schema, primaryKeys[0], columns[primaryKeys[0]], {hashKey: true});
+                    if(! require("underscore").isUndefined(primaryKeys[1])){
+                        adapter._setColumnType(schema, primaryKeys[1], columns[primaryKeys[1]], {rangeKey: true});
+                    }
+                }
+            }
 //                  schema.String( primaryKey, {hashKey: true});
             for(var i = 0; i < indexes.length; i++){
                 var key = indexes[i];
