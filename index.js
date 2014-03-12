@@ -99,7 +99,15 @@ module.exports = (function () {
 //      , schema: false
     }
 
-    , _getModel: function(collectionName){
+   
+
+    , _getModel: function (collectionName) {
+
+        var collection = _modelReferences[collectionName];
+//console.log("currenct collection", collection.definition);
+var primaryKeys = require("lodash").where(collection.definition, { primaryKey: true });
+//console.log("primaryKeys", primaryKeys);
+
         return Vogels.define(collectionName, function (schema) {
 //console.log("_getModel", collectionName);
             var columns = global.Hook.models[collectionName].attributes;
@@ -113,18 +121,20 @@ module.exports = (function () {
                 if(typeof attributes !== "function"){
                     adapter._setColumnType(schema, columnName, attributes);
                     // search primarykey
-                    if("primaryKey" in attributes)primaryKeys.push( columnName );
+//                    if("primaryKey" in attributes)primaryKeys.push( columnName );
                     // search index
                     if("index" in attributes) indexes.push(columnName);
                 }
             }
 
+            var primaryKeys = adapter._getPrimaryKeys(collectionName);
+
             if(primaryKeys.length < 1)
               schema.UUID( adapter.keyId, {hashKey: true});
             else{
-                if(! require("underscore").isUndefined(primaryKeys[0])){
+                if (!require("lodash").isUndefined(primaryKeys[0])) {
                     adapter._setColumnType(schema, primaryKeys[0], columns[primaryKeys[0]], {hashKey: true});
-                    if(! require("underscore").isUndefined(primaryKeys[1])){
+                    if (!require("lodash").isUndefined(primaryKeys[1])) {
                         adapter._setColumnType(schema, primaryKeys[1], columns[primaryKeys[1]], {rangeKey: true});
                     }
                 }
@@ -140,7 +150,18 @@ module.exports = (function () {
           });
     }
 
-    ,
+    , _getPrimaryKeys: function (collectionName) {
+        var lodash = require("lodash");
+        var collection = _modelReferences[collectionName];
+
+        var maps = lodash.mapValues(collection.definition, "primaryKey");
+        //            console.log(results);
+        var list = lodash.pick(maps, function (value, key) {
+            return typeof value !== "undefined";
+        });
+        var primaryKeys = lodash.keys(list);
+        return primaryKeys;
+    }
     /**
      * 
      * This method runs when a model is initially registered
@@ -150,9 +171,10 @@ module.exports = (function () {
      * @param  {Function} cb         [description]
      * @return {[type]}              [description]
      */
-    registerCollection: function(collection, cb) {
-//console.log("adapter::registerCollection:", collection);
+    , registerCollection: function (collection, cb) {
+//        console.log("adapter::registerCollection:"/*, collection*/);
         AWS.config.loadFromPath('./credentials.json');
+
 /*
  adapter::registerCollection: { keyId: 'id',
  syncable: true,
@@ -193,6 +215,24 @@ module.exports = (function () {
  identity: 'user' }
 
  */
+        /*
+        if (primaryKeys.length < 1)
+            schema.UUID(adapter.keyId, { hashKey: true });
+        else {
+            if (!require("underscore").isUndefined(primaryKeys[0])) {
+                adapter._setColumnType(schema, primaryKeys[0], columns[primaryKeys[0]], { hashKey: true });
+                if (!require("underscore").isUndefined(primaryKeys[1])) {
+                    adapter._setColumnType(schema, primaryKeys[1], columns[primaryKeys[1]], { rangeKey: true });
+                }
+            }
+        }
+        //                  schema.String( primaryKey, {hashKey: true});
+        for (var i = 0; i < indexes.length; i++) {
+            var key = indexes[i];
+            schema.globalIndex(key + adapter.indexPrefix, { hashKey: key });
+        }
+*/
+
       // Keep a reference to this collection
       _modelReferences[collection.identity] = collection;
         cb();
@@ -359,11 +399,23 @@ console.info("::option", options);
 
         if ('limit' in options && options.limit < 2 ){
             // query mode
-            // search primary key
-            for(var key in options.where){
-                var pValue = options.where[key];
+            // get primarykeys
+            var primaryKeys = adapter._getPrimaryKeys(collectionName);
+            // get current condition
+            var wheres = require("lodash").keys(options.where);
+            // compare both of keys
+            var primaryQuery = require("lodash").intersection(primaryKeys, wheres);
+            // get model
+            var model = adapter._getModel(collectionName);
+            if (primaryQuery.length < 1) {  // secondary key search
+                var hashKey = wheres[0];
+                var query = model.query(options.where[hashKey]).usingIndex(wheres[0] + adapter.indexPrefix)
             }
-            var query = adapter._getModel(collectionName).query(pValue);
+            else{  // primary key search
+                var hashKey = primaryKeys[0];
+                var query = model.query(options.where[hashKey]);
+            }
+                
         }
         else{
         // scan mode
@@ -386,11 +438,11 @@ console.info("::option", options);
 
         query.exec( function(err, res){
            if(!err){
-//               console.log("success", res.Items[0].attrs);
+//               console.log("success", adapter._resultFormat(res));
                cb(null, adapter._resultFormat(res));
            }
            else{
-               console.warn('Error exec query'+__filename, err);
+               sails.log.warn('Error exec query:'+__filename, err);
                cb(err);
            }
         });
