@@ -9,6 +9,7 @@
 
 var Vogels = require('vogels');
 var AWS = Vogels.AWS;
+var _ = require('lodash');
 
 /**
  * Sails Boilerplate Adapter
@@ -126,9 +127,10 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
                     if("index" in attributes) indexes.push(columnName);
                 }
             }
-
+            // set primary key
             var primaryKeys = adapter._getPrimaryKeys(collectionName);
-
+            var primaryKeys = require("lodash").difference(primaryKeys, ["id"]); // ignore "id"
+//            console.log("collection.definition", collection.definition);
             if(primaryKeys.length < 1)
               schema.UUID( adapter.keyId, {hashKey: true});
             else{
@@ -702,7 +704,9 @@ console.log(collectionName, global.Hook.models[collectionName].attributes);
           options = (typeof options !== 'undefined') ? options : {};
 
           // set columns
-          var type = (!attr.type)?attr:attr.type;
+          console.log("name:", name);
+          console.log("attr:", attr);
+          var type = (attr !== "")?attr:attr.type;
 
           switch (type){
               case "date":
