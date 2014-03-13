@@ -483,9 +483,9 @@ console.info("::option", options);
      * @return {[type]}                  [description]
      */
     create: function(collectionName, values, cb) {
-console.info("adaptor::create", collectionName);
-console.info("values", values);
-console.log(collectionName, global.Hook.models[collectionName].attributes);
+//console.info("adaptor::create", collectionName);
+//console.info("values", values);
+//console.log(collectionName, global.Hook.models[collectionName].attributes);
         var Model = adapter._getModel(collectionName);
 
       // If you need to access your private data for this collection:
@@ -704,8 +704,8 @@ console.log(collectionName, global.Hook.models[collectionName].attributes);
           options = (typeof options !== 'undefined') ? options : {};
 
           // set columns
-          console.log("name:", name);
-          console.log("attr:", attr);
+//          console.log("name:", name);
+//          console.log("attr:", attr);
           var type = (attr !== "")?attr:attr.type;
 
           switch (type){
