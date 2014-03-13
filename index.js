@@ -521,8 +521,8 @@ console.info("::option", options);
      */
     update: function(collectionName, options, values, cb) {
 //console.info("adaptor::update", collectionName);
-//console.info("options", options);
-//console.info("values", values);
+//console.info("::options", options);
+//console.info("::values", values);
         var Model = adapter._getModel(collectionName);
 
       // If you need to access your private data for this collection:
@@ -542,7 +542,9 @@ console.info("::option", options);
       // 2. Update all result records with `values`.
       // 
       // (do both in a single query if you can-- it's faster)
-        var current = Model.update(values, function(err, res){
+        var updateValues = require("lodash").assign(options.where, values);
+//console.log(updateValues);
+        var current = Model.update(updateValues, function (err, res) {
             if(err) {
                 console.warn('Error update data'+__filename, err);
                 cb(err);
