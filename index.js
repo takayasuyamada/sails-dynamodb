@@ -597,9 +597,8 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
       // (do both in a single query if you can-- it's faster)
 
       // Return an error, otherwise it's declared a success.
-        if ('where' in options && adapter.keyId in options.where){
-            var values = {};
-            values[adapter.keyId] = options.where[adapter.keyId];
+        if ('where' in options){
+            var values = options.where;
             var current = Model.destroy(values, function(err, res){
                 if(err) {
                     console.warn('Error destory data'+__filename, err);
