@@ -396,8 +396,8 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
      * @return {[type]}                  [description]
      */
     find: function(collectionName, options, cb) {
-console.info("adaptor::find", collectionName);
-console.info("::option", options);
+//console.info("adaptor::find", collectionName);
+//console.info("::option", options);
 
         // Options object is normalized for you:
         //
@@ -494,9 +494,9 @@ console.info("::option", options);
      * @return {[type]}                  [description]
      */
     create: function(collectionName, values, cb) {
-console.info("adaptor::create", collectionName);
-console.info("values", values);
-console.log(collectionName, global.Hook.models[collectionName].attributes);
+//console.info("adaptor::create", collectionName);
+//console.info("values", values);
+//console.log(collectionName, global.Hook.models[collectionName].attributes);
         var Model = adapter._getModel(collectionName);
 
       // If you need to access your private data for this collection:
@@ -718,25 +718,25 @@ console.log(collectionName, global.Hook.models[collectionName].attributes);
 
           // set columns
 //          console.log("name:", name);
-          console.log("attr:", attr);
+//          console.log("attr:", attr);
           var type = (require("lodash").isString(attr)) ? attr : attr.type;
 
           switch (type){
               case "date":
               case "time":
               case "datetime":
-                  console.log("Set Date:", name);
+//                  console.log("Set Date:", name);
                   schema.Date(name, options);
                   break;
 
               case "integer":
               case "float":
-                  console.log("Set Number:", name);
+//                  console.log("Set Number:", name);
                   schema.Number(name, options);
                   break;
 
               case "boolean":
-                  console.log("Set Boolean:", name);
+//                  console.log("Set Boolean:", name);
                   schema.Boolean(name, options);
                   break;
 
@@ -745,7 +745,7 @@ console.log(collectionName, global.Hook.models[collectionName].attributes);
 //              case "array":   // not support
 //              case "json":
               default:
-                  console.log("Set String", name);
+//                  console.log("Set String", name);
                   schema.String(name, options);
                   break;
           }
