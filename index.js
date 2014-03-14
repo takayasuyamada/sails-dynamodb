@@ -105,13 +105,63 @@ module.exports = (function () {
     , _getModel: function (collectionName) {
 
         var collection = _modelReferences[collectionName];
-//console.log("currenct collection", collection.definition);
+//console.log("currenct collection.definition", collection.definition);
+//console.log(collection);
+
+/*
+currenct collection
+{ 
+    keyId: 'id',
+    indexPrefix: '-Index',
+    syncable: true,
+    defaults: 
+    { accessKeyId: null,
+        secretAccessKey: null,
+        region: 'us-west-1',
+        credentialsFilePath: './credentials.json',
+        migrate: 'alter',
+        adapter: 'sails-dynamodb' },
+    _getModel: [Function],
+    _getPrimaryKeys: [Function],
+    registerCollection: [Function],
+    teardown: [Function],
+    define: [Function],
+    describe: [Function],
+    drop: [Function],
+    find: [Function],
+    _searchCondition: [Function],
+    create: [Function],
+    update: [Function],
+    destroy: [Function],
+    _setColumnType: [Function],
+    _resultFormat: [Function],
+    config: 
+    { accessKeyId: null,
+        secretAccessKey: null,
+        region: 'us-west-1',
+        credentialsFilePath: './credentials.json',
+        migrate: 'alter',
+        adapter: 'sails-dynamodb' },
+    definition: 
+    { user_id: { primaryKey: true, unique: true },
+        name: { type: 'string', index: true },
+        password: { type: 'string', index: true },
+        email: { type: 'string', index: true },
+        activated: { type: 'boolean', defaultsTo: false },
+        activationToken: { type: 'string' },
+        isSocial: { type: 'boolean' },
+        socialActivated: { type: 'boolean' },
+        createdAt: { type: 'datetime', default: 'NOW' },
+        updatedAt: { type: 'datetime', default: 'NOW' } },
+    identity: 'user' }
+*/
+
 var primaryKeys = require("lodash").where(collection.definition, { primaryKey: true });
 //console.log("primaryKeys", primaryKeys);
 
         return Vogels.define(collectionName, function (schema) {
 //console.log("_getModel", collectionName);
-            var columns = global.Hook.models[collectionName].attributes;
+            var columns = collection.definition;
             var primaryKeys = []
             var indexes = [];
             // set columns
@@ -149,7 +199,7 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
 
             schema.Date('createdAt', {default: Date.now});
             schema.Date('updatedAt', {default: Date.now});
-          });
+        });
     }
 
     , _getPrimaryKeys: function (collectionName) {
@@ -177,46 +227,7 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
 //        console.log("adapter::registerCollection:"/*, collection*/);
         AWS.config.loadFromPath('./credentials.json');
 
-/*
- adapter::registerCollection: { keyId: 'id',
- syncable: true,
- defaults:
- { accessKeyId: null,
- secretAccessKey: null,
- region: 'us-west-1',
- migrate: 'alter',
- adapter: 'sails-dynamodb' },
- _getModel: [Function],
- registerCollection: [Function],
- teardown: [Function],
- define: [Function],
- describe: [Function],
- drop: [Function],
- find: [Function],
- create: [Function],
- update: [Function],
- destroy: [Function],
- _setColumnType: [Function],
- _resultFormat: [Function],
- _searchCondition: [Function],
- config:
- { accessKeyId: null,
- secretAccessKey: null,
- region: 'us-west-1',
- migrate: 'alter',
- adapter: 'sails-dynamodb' },
- definition:
- { id:
- { type: 'integer',
- autoIncrement: true,
- defaultsTo: 'AUTO_INCREMENT',
- primaryKey: true,
- unique: true },
- createdAt: { type: 'datetime', default: 'NOW' },
- updatedAt: { type: 'datetime', default: 'NOW' } },
- identity: 'user' }
 
- */
         /*
         if (primaryKeys.length < 1)
             schema.UUID(adapter.keyId, { hashKey: true });
@@ -483,9 +494,9 @@ console.info("::option", options);
      * @return {[type]}                  [description]
      */
     create: function(collectionName, values, cb) {
-//console.info("adaptor::create", collectionName);
-//console.info("values", values);
-//console.log(collectionName, global.Hook.models[collectionName].attributes);
+console.info("adaptor::create", collectionName);
+console.info("values", values);
+console.log(collectionName, global.Hook.models[collectionName].attributes);
         var Model = adapter._getModel(collectionName);
 
       // If you need to access your private data for this collection:
@@ -707,25 +718,25 @@ console.info("::option", options);
 
           // set columns
 //          console.log("name:", name);
-//          console.log("attr:", attr);
-          var type = (attr !== "")?attr:attr.type;
+          console.log("attr:", attr);
+          var type = (require("lodash").isString(attr)) ? attr : attr.type;
 
           switch (type){
               case "date":
               case "time":
               case "datetime":
-//                  console.log("Set Date:", name);
+                  console.log("Set Date:", name);
                   schema.Date(name, options);
                   break;
 
               case "integer":
               case "float":
-//                  console.log("Set Number:", name);
+                  console.log("Set Number:", name);
                   schema.Number(name, options);
                   break;
 
               case "boolean":
-//                  console.log("Set Boolean:", name);
+                  console.log("Set Boolean:", name);
                   schema.Boolean(name, options);
                   break;
 
@@ -734,7 +745,7 @@ console.info("::option", options);
 //              case "array":   // not support
 //              case "json":
               default:
-//                  console.log("Set String", name);
+                  console.log("Set String", name);
                   schema.String(name, options);
                   break;
           }
