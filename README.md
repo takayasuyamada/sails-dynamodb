@@ -11,8 +11,7 @@ Install is through NPM.
 
 ```bash
 $ sails new project && cd project
-$ git clone https://github.com/dohzoh/sails-dynamodb.git node_modules/sails-dynamodb
-$ cd node_modules/sails-dynamodb && npm install && cd ../../
+$ npm install git://github.com/dohzoh/sails-dynamodb.git
 $ cp node_modules/sails-dynamodb/credentials.example.json ./credentials.json  # & put your amazon keys
 ```
 Todo: to npm package
