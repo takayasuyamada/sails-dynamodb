@@ -27,6 +27,8 @@ var _ = require('lodash');
  */
 module.exports = (function () {
 
+  // Hold connections for this adapter
+  var connections = {};
 
   // You'll want to maintain a reference to each collection
   // (aka model) that gets registered with this adapter.
@@ -61,7 +63,10 @@ module.exports = (function () {
   var _dbPools = {};
 
   var adapter = {
-    keyId: "id"
+
+    identity: 'sails-dynamodb'
+
+    , keyId: "id"
     , indexPrefix: "-Index"
 
     // Set to true if this adapter supports (or requires) things like data types, validations, keys, etc.
@@ -214,6 +219,28 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
         var primaryKeys = lodash.keys(list);
         return primaryKeys;
     }
+	
+    // Register A Connection
+    , registerConnection: function (connection, collections, cb) {
+//var sails = require("sails");
+//console.log("load registerConnection");
+//console.log("::connection",connection);
+//console.log("::collections",collections);
+      if(!connection.identity) return cb(Errors.IdentityMissing);
+      if(connections[connection.identity]) return cb(Errors.IdentityDuplicate);
+
+		AWS.config.loadFromPath('./credentials.json');
+// Keep a reference to this collection
+//		for(var identity in collections ){
+		_modelReferences = collections;
+		cb();
+//		}
+	  
+	  
+//      connections[connection.identity] = new Database(connection, collections);
+//      connections[connection.identity].initialize(cb);
+    }
+	
     /**
      * 
      * This method runs when a model is initially registered
@@ -223,34 +250,13 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
      * @param  {Function} cb         [description]
      * @return {[type]}              [description]
      */
-    , registerCollection: function (collection, cb) {
-//        console.log("adapter::registerCollection:"/*, collection*/);
+/*    , registerCollection: function (collection, cb) {
         AWS.config.loadFromPath('./credentials.json');
-
-
-        /*
-        if (primaryKeys.length < 1)
-            schema.UUID(adapter.keyId, { hashKey: true });
-        else {
-            if (!require("underscore").isUndefined(primaryKeys[0])) {
-                adapter._setColumnType(schema, primaryKeys[0], columns[primaryKeys[0]], { hashKey: true });
-                if (!require("underscore").isUndefined(primaryKeys[1])) {
-                    adapter._setColumnType(schema, primaryKeys[1], columns[primaryKeys[1]], { rangeKey: true });
-                }
-            }
-        }
-        //                  schema.String( primaryKey, {hashKey: true});
-        for (var i = 0; i < indexes.length; i++) {
-            var key = indexes[i];
-            schema.globalIndex(key + adapter.indexPrefix, { hashKey: key });
-        }
-*/
-
       // Keep a reference to this collection
       _modelReferences[collection.identity] = collection;
         cb();
-    },
-
+    }
+*/
 
     /**
      * Fired when a model is unregistered, typically when the server
@@ -260,7 +266,7 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
      * @param  {Function} cb [description]
      * @return {[type]}      [description]
      */
-    teardown: function(cb) {
+    , teardown: function(connection, cb) {
       cb();
     },
 
@@ -276,7 +282,7 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
      * @param  {Function} cb             [description]
      * @return {[type]}                  [description]
      */
-    define: function(collectionName, definition, cb) {
+    define: function(connection, collectionName, definition, cb) {
 //console.info("adaptor::define");
 //console.info("::collectionName", collectionName);
 //console.info("::definition", definition);
@@ -317,12 +323,14 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
      * @param  {Function} cb             [description]
      * @return {[type]}                  [description]
      */
-    describe: function(collectionName, cb) {
+    describe: function(connection, collectionName, cb) {
 //console.info("adaptor::describe");
-//console.info(collectionName);
+//console.log("::connection",connection);
+//console.log("::collection",collectionName);
 
       // If you need to access your private data for this collection:
       var collection = _modelReferences[collectionName];
+//console.log("::collection.definition",collection.definition);
 
       // Respond with the schema (attributes) for a collection or table in the data store
       var attributes = {};
@@ -341,7 +349,7 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
 //                console.log(err); // an error occurred
             } else {
 //                console.log(data); // successful response
-                cb(null, attributes);
+                cb();
             }
         });
     },
@@ -358,7 +366,7 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
      * @param  {Function} cb             [description]
      * @return {[type]}                  [description]
      */
-    drop: function(collectionName, relations, cb) {
+    drop: function(connection, collectionName, relations, cb) {
 //console.info("adaptor::drop", collectionName);
       // If you need to access your private data for this collection:
       var collection = _modelReferences[collectionName];
@@ -395,7 +403,7 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
      * @param  {Function} cb             [description]
      * @return {[type]}                  [description]
      */
-    find: function(collectionName, options, cb) {
+    find: function(connection, collectionName, options, cb) {
 //console.info("adaptor::find", collectionName);
 //console.info("::option", options);
 
@@ -436,7 +444,7 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
             // If you need to access your private data for this collection:
             var collection = _modelReferences[collectionName];
 
-            if ('where' in options){
+            if ('where' in options && !options.where){
                 for(var key in options['where']){
                     //console.log(options['where'][key]);
                     query = query.where(key).contains(options['where'][key]);
@@ -455,10 +463,11 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
                cb(null, adapter._resultFormat(res));
            }
            else{
-               sails.log.warn('Error exec query:'+__filename, err);
+               console.warn('Error exec query:'+__filename, err);
                cb(err);
            }
         });
+		
       // Respond with an error, or the results.
 //      cb(null, []);
     }
@@ -493,7 +502,7 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
      * @param  {Function} cb             [description]
      * @return {[type]}                  [description]
      */
-    create: function(collectionName, values, cb) {
+    create: function(connection, collectionName, values, cb) {
 //console.info("adaptor::create", collectionName);
 //console.info("values", values);
 //console.log(collectionName, global.Hook.models[collectionName].attributes);
@@ -530,7 +539,7 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
      * @param  {Function} cb             [description]
      * @return {[type]}                  [description]
      */
-    update: function(collectionName, options, values, cb) {
+    update: function(connection, collectionName, options, values, cb) {
 //console.info("adaptor::update", collectionName);
 //console.info("::options", options);
 //console.info("::values", values);
@@ -579,7 +588,7 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
      * @param  {Function} cb             [description]
      * @return {[type]}                  [description]
      */
-    destroy: function(collectionName, options, cb) {
+    destroy: function(connection, collectionName, options, cb) {
 //console.info("adaptor::destory", collectionName);
 //console.info("options", options);
         var Model = adapter._getModel(collectionName);
