@@ -220,7 +220,15 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
         return primaryKeys;
     }
 	
-    // Register A Connection
+      /**
+       * 
+       * This method runs when a model is initially registered
+       * at server-start-time.  This is the only required method.
+       * 
+       * @param  string   collection [description]
+       * @param  {Function} cb         [description]
+       * @return {[type]}              [description]
+       */
     , registerConnection: function (connection, collections, cb) {
 //var sails = require("sails");
 //console.log("load registerConnection");
@@ -229,34 +237,18 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
       if(!connection.identity) return cb(Errors.IdentityMissing);
       if(connections[connection.identity]) return cb(Errors.IdentityDuplicate);
 
-		AWS.config.loadFromPath('./credentials.json');
-// Keep a reference to this collection
-//		for(var identity in collections ){
-		_modelReferences = collections;
-		cb();
-//		}
-	  
-	  
-//      connections[connection.identity] = new Database(connection, collections);
-//      connections[connection.identity].initialize(cb);
+      var error = null;
+        try{
+            AWS.config.loadFromPath('./credentials.json');
+        }
+        catch (e) {
+            e.message = e.message + ". Please create credentials.json on your sails project root and restart node";
+            error = e;
+        }
+        // Keep a reference to this collection
+        _modelReferences = collections;
+        cb(error);
     }
-	
-    /**
-     * 
-     * This method runs when a model is initially registered
-     * at server-start-time.  This is the only required method.
-     * 
-     * @param  string   collection [description]
-     * @param  {Function} cb         [description]
-     * @return {[type]}              [description]
-     */
-/*    , registerCollection: function (collection, cb) {
-        AWS.config.loadFromPath('./credentials.json');
-      // Keep a reference to this collection
-      _modelReferences[collection.identity] = collection;
-        cb();
-    }
-*/
 
     /**
      * Fired when a model is unregistered, typically when the server
