@@ -28,8 +28,10 @@
     "waterline-adapter-tests": "git://github.com/balderdashy/waterline-adapter-tests.git#associations",
     "mocha": "*",
     "root-require": "~0.2.0",
-    "captains-log": "~0.10.6",
-    "vogels": "*"
+    "captains-log": "~0.10.6"
+    , "vogels": "*"
+	, "lodash": ""
+	, "async": ""
   },
   "sailsAdapter": {
     "sailsVersion": "~0.10.0",

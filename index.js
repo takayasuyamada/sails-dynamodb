@@ -9,6 +9,7 @@
 
 var Vogels = require('vogels');
 var AWS = Vogels.AWS;
+var _ = require('lodash');
 
 /**
  * Sails Boilerplate Adapter
@@ -61,6 +62,7 @@ module.exports = (function () {
 
   var adapter = {
     keyId: "id"
+    , indexPrefix: "-Index"
 
     // Set to true if this adapter supports (or requires) things like data types, validations, keys, etc.
     // If true, the schema for models using this adapter will be automatically synced when the server starts.
@@ -74,7 +76,7 @@ module.exports = (function () {
 	  accessKeyId: null
 	  , secretAccessKey: null
 	  , region: 'us-west-1'
-
+        , credentialsFilePath: './credentials.json'
       // For example:
       // port: 3306,
       // host: 'localhost',
@@ -95,28 +97,123 @@ module.exports = (function () {
       // alter  => Drop/add columns as necessary.
       // safe   => Don't change anything (good for production DBs)
       , migrate: 'alter'
-//      , schema: true
+//      , schema: false
     }
 
-    , _getModel: function(collectionName){
-          return Vogels.define(collectionName, function (schema) {
+   
+
+    , _getModel: function (collectionName) {
+
+        var collection = _modelReferences[collectionName];
+//console.log("currenct collection.definition", collection.definition);
+//console.log(collection);
+
+/*
+currenct collection
+{ 
+    keyId: 'id',
+    indexPrefix: '-Index',
+    syncable: true,
+    defaults: 
+    { accessKeyId: null,
+        secretAccessKey: null,
+        region: 'us-west-1',
+        credentialsFilePath: './credentials.json',
+        migrate: 'alter',
+        adapter: 'sails-dynamodb' },
+    _getModel: [Function],
+    _getPrimaryKeys: [Function],
+    registerCollection: [Function],
+    teardown: [Function],
+    define: [Function],
+    describe: [Function],
+    drop: [Function],
+    find: [Function],
+    _searchCondition: [Function],
+    create: [Function],
+    update: [Function],
+    destroy: [Function],
+    _setColumnType: [Function],
+    _resultFormat: [Function],
+    config: 
+    { accessKeyId: null,
+        secretAccessKey: null,
+        region: 'us-west-1',
+        credentialsFilePath: './credentials.json',
+        migrate: 'alter',
+        adapter: 'sails-dynamodb' },
+    definition: 
+    { user_id: { primaryKey: true, unique: true },
+        name: { type: 'string', index: true },
+        password: { type: 'string', index: true },
+        email: { type: 'string', index: true },
+        activated: { type: 'boolean', defaultsTo: false },
+        activationToken: { type: 'string' },
+        isSocial: { type: 'boolean' },
+        socialActivated: { type: 'boolean' },
+        createdAt: { type: 'datetime', default: 'NOW' },
+        updatedAt: { type: 'datetime', default: 'NOW' } },
+    identity: 'user' }
+*/
+
+var primaryKeys = require("lodash").where(collection.definition, { primaryKey: true });
+//console.log("primaryKeys", primaryKeys);
+
+        return Vogels.define(collectionName, function (schema) {
 //console.log("_getModel", collectionName);
-              var columns = global.Hook.models[collectionName].attributes;
+            var columns = collection.definition;
+            var primaryKeys = []
+            var indexes = [];
+            // set columns
+            for(var columnName in columns){
+                var attributes = columns[columnName];
 
+//                console.log(columnName+":", attributes);
+                if(typeof attributes !== "function"){
+                    adapter._setColumnType(schema, columnName, attributes);
+                    // search primarykey
+//                    if("primaryKey" in attributes)primaryKeys.push( columnName );
+                    // search index
+                    if("index" in attributes) indexes.push(columnName);
+                }
+            }
+            // set primary key
+            var primaryKeys = adapter._getPrimaryKeys(collectionName);
+            var primaryKeys = require("lodash").difference(primaryKeys, ["id"]); // ignore "id"
+//            console.log("collection.definition", collection.definition);
+            if(primaryKeys.length < 1)
               schema.UUID( adapter.keyId, {hashKey: true});
-              schema.Date('createdAt', {default: Date.now});
-              schema.Date('updatedAt', {default: Date.now});
+            else{
+                if (!require("lodash").isUndefined(primaryKeys[0])) {
+                    adapter._setColumnType(schema, primaryKeys[0], columns[primaryKeys[0]], {hashKey: true});
+                    if (!require("lodash").isUndefined(primaryKeys[1])) {
+                        adapter._setColumnType(schema, primaryKeys[1], columns[primaryKeys[1]], {rangeKey: true});
+                    }
+                }
+            }
+//                  schema.String( primaryKey, {hashKey: true});
+            for(var i = 0; i < indexes.length; i++){
+                var key = indexes[i];
+                schema.globalIndex(key + adapter.indexPrefix, { hashKey: key});
+            }
 
-              for(var columnName in columns){
-                  var attributes = columns[columnName];
-
-                  console.log(columnName, attributes);
-                  adapter._setColumnType(schema, columnName, attributes);
-              }
-          });
+            schema.Date('createdAt', {default: Date.now});
+            schema.Date('updatedAt', {default: Date.now});
+        });
     }
 
-    ,
+    , _getPrimaryKeys: function (collectionName) {
+        var lodash = require("lodash");
+        var collection = _modelReferences[collectionName];
+
+        var maps = lodash.mapValues(collection.definition, "primaryKey");
+        //            console.log(results);
+        var list = lodash.pick(maps, function (value, key) {
+            return typeof value !== "undefined";
+        });
+        var primaryKeys = lodash.keys(list);
+        return primaryKeys;
+    }
     /**
      * 
      * This method runs when a model is initially registered
@@ -126,10 +223,28 @@ module.exports = (function () {
      * @param  {Function} cb         [description]
      * @return {[type]}              [description]
      */
-    registerCollection: function(collection, cb) {
-//console.log("adapter::registerCollection:"/*, collection*/);
+    , registerCollection: function (collection, cb) {
+//        console.log("adapter::registerCollection:"/*, collection*/);
+        AWS.config.loadFromPath('./credentials.json');
 
-	  AWS.config.loadFromPath('./config.json');
+
+        /*
+        if (primaryKeys.length < 1)
+            schema.UUID(adapter.keyId, { hashKey: true });
+        else {
+            if (!require("underscore").isUndefined(primaryKeys[0])) {
+                adapter._setColumnType(schema, primaryKeys[0], columns[primaryKeys[0]], { hashKey: true });
+                if (!require("underscore").isUndefined(primaryKeys[1])) {
+                    adapter._setColumnType(schema, primaryKeys[1], columns[primaryKeys[1]], { rangeKey: true });
+                }
+            }
+        }
+        //                  schema.String( primaryKey, {hashKey: true});
+        for (var i = 0; i < indexes.length; i++) {
+            var key = indexes[i];
+            schema.globalIndex(key + adapter.indexPrefix, { hashKey: key });
+        }
+*/
 
       // Keep a reference to this collection
       _modelReferences[collection.identity] = collection;
@@ -163,25 +278,23 @@ module.exports = (function () {
      */
     define: function(collectionName, definition, cb) {
 //console.info("adaptor::define");
-//console.info("collectionName", collectionName);
-//console.info("definition", definition);
+//console.info("::collectionName", collectionName);
+//console.info("::definition", definition);
+//console.info("::model", adapter._getModel(collectionName));
 
       // If you need to access your private data for this collection:
       var collection = _modelReferences[collectionName];
 
         if(! _definedTables[collectionName] ){
-            var table = Vogels.define(collectionName, function (schema) {
-                schema.UUID('id', {hashKey: true});
-                schema.Date('createdAt', {default: Date.now});
-                schema.Date('updatedAt', {default: Date.now});
-            });
+            var table = adapter._getModel(collectionName);
 
             _definedTables[collectionName] = table;
             Vogels.createTables({
                 collectionName: {readCapacity: 1, writeCapacity: 1}
             }, function (err) {
                 if(err) {
-//                    console.log('Error creating tables', err);
+                    console.warn('Error creating tables', err);
+                    cb(err);
                 } else {
 //                    console.log('table are now created and active');
                     cb();
@@ -215,13 +328,15 @@ module.exports = (function () {
       var attributes = {};
 
         // extremly simple table names
-        var tableName = collectionName.toLowerCase() + 's';
+        var tableName = collectionName.toLowerCase() + 's'; // 's' is vogels spec
         (new AWS.DynamoDB()).describeTable({TableName:tableName}, function(err, res){
             if (err) {
                 if('code' in err && err['code'] === 'ResourceNotFoundException'){
-                    adapter.define(collectionName, {}, function(){
-                        cb(null, attributes);
-                    });
+                    cb();
+                }
+                else{
+                    console.warn('Error describe tables'+__filename, err);
+                    cb(err);
                 }
 //                console.log(err); // an error occurred
             } else {
@@ -284,47 +399,89 @@ module.exports = (function () {
 //console.info("adaptor::find", collectionName);
 //console.info("::option", options);
 
-        var query = adapter._getModel(collectionName).scan();
-      // If you need to access your private data for this collection:
-      var collection = _modelReferences[collectionName];
+        // Options object is normalized for you:
+        //
+        // options.where
+        // options.limit
+        // options.skip
+        // options.
 
-      // Options object is normalized for you:
-      // 
-      // options.where
-      // options.limit
-      // options.skip
-      // options.
-      
-      // Filter, paginate, and sort records from the datastore.
-      // You should end up w/ an array of objects as a result.
-      // If no matches were found, this will be an empty array.
+        // Filter, paginate, and sort records from the datastore.
+        // You should end up w/ an array of objects as a result.
+        // If no matches were found, this will be an empty array.
 
-	if ('where' in options){
-        for(var key in options['where']){
-//console.log(options['where'][key]);
-            query = query.where(key).contains(options['where'][key]);
+        if ('limit' in options && options.limit < 2 ){
+            // query mode
+            // get primarykeys
+            var primaryKeys = adapter._getPrimaryKeys(collectionName);
+            // get current condition
+            var wheres = require("lodash").keys(options.where);
+            // compare both of keys
+            var primaryQuery = require("lodash").intersection(primaryKeys, wheres);
+            // get model
+            var model = adapter._getModel(collectionName);
+            if (primaryQuery.length < 1) {  // secondary key search
+                var hashKey = wheres[0];
+                var query = model.query(options.where[hashKey]).usingIndex(wheres[0] + adapter.indexPrefix)
+            }
+            else{  // primary key search
+                var hashKey = primaryKeys[0];
+                var query = model.query(options.where[hashKey]);
+            }
+                
         }
+        else{
+        // scan mode
+            var query = adapter._getModel(collectionName).scan();
+            // If you need to access your private data for this collection:
+            var collection = _modelReferences[collectionName];
 
-        query = adapter._searchCondition(query, options);
-	}
-    else{
+            if ('where' in options){
+                for(var key in options['where']){
+                    //console.log(options['where'][key]);
+                    query = query.where(key).contains(options['where'][key]);
+                }
 
-        query = adapter._searchCondition(query, options);
-    }
+                query = adapter._searchCondition(query, options);
+            }
+            else{
+                query = adapter._searchCondition(query, options);
+            }
+        }
 
         query.exec( function(err, res){
            if(!err){
-//               console.log("success", res.Items[0].attrs);
+//               console.log("success", adapter._resultFormat(res));
                cb(null, adapter._resultFormat(res));
            }
            else{
-               console.log(err);
+               sails.log.warn('Error exec query:'+__filename, err);
                cb(err);
            }
         });
       // Respond with an error, or the results.
 //      cb(null, []);
     }
+      /**
+       * search condition
+       * @param query
+       * @param options
+       * @returns {*}
+       * @private
+       */
+      , _searchCondition: function(query, options){
+          if ('limit' in options){
+//            query = query.limit(1);
+          }
+
+          if ('skip' in options){
+          }
+
+          if ('sort' in options){
+          }
+
+          return query
+      }
 
     ,
     /**
@@ -348,7 +505,7 @@ module.exports = (function () {
       // Create a single new model (specified by `values`)
         var current = Model.create(values, function(err, res){
             if(err) {
-//                console.log('Error add model data', err);
+                console.warn('Error add data'+__filename, err);
                 cb(err);
             } else {
 //                console.log('add model data',res.attrs);
@@ -375,8 +532,8 @@ module.exports = (function () {
      */
     update: function(collectionName, options, values, cb) {
 //console.info("adaptor::update", collectionName);
-//console.info("options", options);
-//console.info("values", values);
+//console.info("::options", options);
+//console.info("::values", values);
         var Model = adapter._getModel(collectionName);
 
       // If you need to access your private data for this collection:
@@ -396,9 +553,11 @@ module.exports = (function () {
       // 2. Update all result records with `values`.
       // 
       // (do both in a single query if you can-- it's faster)
-        var current = Model.update(values, function(err, res){
+        var updateValues = require("lodash").assign(options.where, values);
+//console.log(updateValues);
+        var current = Model.update(updateValues, function (err, res) {
             if(err) {
-//                console.log('Error add model data', err);
+                console.warn('Error update data'+__filename, err);
                 cb(err);
             } else {
 //                console.log('add model data',res.attrs);
@@ -438,12 +597,11 @@ module.exports = (function () {
       // (do both in a single query if you can-- it's faster)
 
       // Return an error, otherwise it's declared a success.
-        if ('where' in options && adapter.keyId in options.where){
-            var values = {};
-            values[adapter.keyId] = options.where[adapter.keyId];
+        if ('where' in options){
+            var values = options.where;
             var current = Model.destroy(values, function(err, res){
                 if(err) {
-//                    console.log('Error add model data', err);
+                    console.warn('Error destory data'+__filename, err);
                     cb(err);
                 } else {
 //                    console.log('add model data',res.attrs);
@@ -554,24 +712,31 @@ module.exports = (function () {
        * @param attr    columns detail
        * @private
        */
-      , _setColumnType: function(schema, name, attr){
-          switch (attr.type.toLowerCase()){
+      , _setColumnType: function(schema, name, attr, options){
+          options = (typeof options !== 'undefined') ? options : {};
+
+          // set columns
+//          console.log("name:", name);
+//          console.log("attr:", attr);
+          var type = (require("lodash").isString(attr)) ? attr : attr.type;
+
+          switch (type){
               case "date":
               case "time":
               case "datetime":
 //                  console.log("Set Date:", name);
-                  schema.Date(name);
+                  schema.Date(name, options);
                   break;
 
               case "integer":
               case "float":
 //                  console.log("Set Number:", name);
-                  schema.Number(name);
+                  schema.Number(name, options);
                   break;
 
               case "boolean":
 //                  console.log("Set Boolean:", name);
-                  schema.Boolean(name);
+                  schema.Boolean(name, options);
                   break;
 
 //              case "string":
@@ -580,7 +745,7 @@ module.exports = (function () {
 //              case "json":
               default:
 //                  console.log("Set String", name);
-                  schema.String(name);
+                  schema.String(name, options);
                   break;
           }
       }
@@ -600,27 +765,6 @@ module.exports = (function () {
 
 //console.log(items);
           return items;
-      }
-
-      /**
-       * search condition
-       * @param query
-       * @param options
-       * @returns {*}
-       * @private
-       */
-      , _searchCondition: function(query, options){
-          if ('limit' in options){
-//            query = query.limit(1);
-          }
-
-          if ('skip' in options){
-          }
-
-          if ('sort' in options){
-          }
-
-          return query
       }
 
   };
