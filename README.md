@@ -3,7 +3,7 @@
 A [Waterline](https://github.com/balderdashy/waterline) adapter for DynamoDB. May be used in a [Sails](https://github.com/balderdashy/sails) app or anything using Waterline for the ORM.
 
 
-> _**Note:** This adapter is not support the Sails.js v0.10.x. 
+> _**Note:** This adapter support the Sails.js v0.10.x. check 0.9 branch if you use before v0.10
 
 ## Install
 
@@ -11,9 +11,9 @@ Install is through NPM.
 
 ```bash
 $ sails new project && cd project
-$ git clone https://github.com/dohzoh/sails-dynamodb.git node_modules/sails-dynamodb -b 0.9
-$ cp node_modules/sails-dynamodb/credentials.json ./  # & put your amazon keys
+$ git clone https://github.com/dohzoh/sails-dynamodb.git node_modules/sails-dynamodb
 $ cd node_modules/sails-dynamodb && npm install && cd ../../
+$ cp node_modules/sails-dynamodb/credentials.json ./  # & put your amazon keys
 ```
 Todo: to npm package
 
@@ -22,17 +22,31 @@ Todo: to npm package
 
 The following config options are available along with their default values:
 
-config/adapters.js
+config/connection.js
 ```javascript
 module.exports.adapters = {
 
   // If you leave the adapter config unspecified 
   // in a model definition, 'default' will be used.
-  'default': 'dynamodb',
+  localDiskDb: {
+    adapter: 'sails-disk'
+  },
+  
+  dynamoDb: {
+    adapter: "sails-dynamodb"
+  },
+  
+};
+```
 
-    dynamodb: {
-        module: 'sails-dynamodb'
-    },
+config/models.js
+```javascript
+module.exports.adapters = {
+
+  // If you leave the adapter config unspecified 
+  // in a model definition, 'default' will be used.
+  connection: 'dynamoDb'
+  
 };
 ```
 
