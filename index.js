@@ -484,66 +484,69 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
           return query
       }
 
-    ,
-    /**
-     *
-     * REQUIRED method if users expect to call Model.create() or any methods
-     * 
-     * @param  {[type]}   collectionName [description]
-     * @param  {[type]}   values         [description]
-     * @param  {Function} cb             [description]
-     * @return {[type]}                  [description]
-     */
-    create: function(connection, collectionName, values, cb) {
-//console.info("adaptor::create", collectionName);
-//console.info("values", values);
-//console.log(collectionName, global.Hook.models[collectionName].attributes);
-        var Model = adapter._getModel(collectionName);
 
-      // If you need to access your private data for this collection:
-      var collection = _modelReferences[collectionName];
+        /**
+         *
+         * REQUIRED method if users expect to call Model.create() or any methods
+         *
+         * @param  {[type]}   collectionName [description]
+         * @param  {[type]}   values         [description]
+         * @param  {Function} cb             [description]
+         * @return {[type]}                  [description]
+         */
+      , create: function(connection, collectionName, values, cb) {
+console.info("adaptor::create", collectionName);
+console.info("values", values);
+console.log("collection", _modelReferences[collectionName]);
 
-      // Create a single new model (specified by `values`)
-        var current = Model.create(values, function(err, res){
-            if(err) {
-                console.warn('Error add data'+__filename, err);
-                cb(err);
-            } else {
+            var Model = adapter._getModel(collectionName);
+
+            // If you need to access your private data for this collection:
+            var collection = _modelReferences[collectionName];
+            adapter._valueEncode(collection.definition,values);
+
+            // Create a single new model (specified by `values`)
+            var current = Model.create(values, function(err, res){
+                if(err) {
+                    console.warn(__filename+", create error:", err);
+                    cb(err);
+                } else {
+                    adapter._valueDecode(collection.definition,res.attrs);
 //                console.log('add model data',res.attrs);
-                // Respond with error or the newly-created record.
-                cb(null, res.attrs);
-            }
-        });
-    },
+                    // Respond with error or the newly-created record.
+                    cb(null, res.attrs);
+                }
+            });
+        },
 
 
 
-    // 
+            //
 
-    /**
-     *
-     * 
-     * REQUIRED method if users expect to call Model.update()
-     *
-     * @param  {[type]}   collectionName [description]
-     * @param  {[type]}   options        [description]
-     * @param  {[type]}   values         [description]
-     * @param  {Function} cb             [description]
-     * @return {[type]}                  [description]
-     */
-    update: function(connection, collectionName, options, values, cb) {
+            /**
+             *
+             *
+             * REQUIRED method if users expect to call Model.update()
+             *
+             * @param  {[type]}   collectionName [description]
+             * @param  {[type]}   options        [description]
+             * @param  {[type]}   values         [description]
+             * @param  {Function} cb             [description]
+             * @return {[type]}                  [description]
+             */
+            update: function(connection, collectionName, options, values, cb) {
 //console.info("adaptor::update", collectionName);
 //console.info("::options", options);
 //console.info("::values", values);
-        var Model = adapter._getModel(collectionName);
+                var Model = adapter._getModel(collectionName);
 
-      // If you need to access your private data for this collection:
-      var collection = _modelReferences[collectionName];
+                // If you need to access your private data for this collection:
+                var collection = _modelReferences[collectionName];
 
-      // id filter (bug?)
-        if (adapter.keyId in values && typeof values[adapter.keyId] === 'number'){
-            if ('where' in options && adapter.keyId in options.where){
-                values[adapter.keyId] = options.where[adapter.keyId];
+                // id filter (bug?)
+                if (adapter.keyId in values && typeof values[adapter.keyId] === 'number'){
+                    if ('where' in options && adapter.keyId in options.where){
+                        values[adapter.keyId] = options.where[adapter.keyId];
             }
         }
 
@@ -740,10 +743,13 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
                   schema.Boolean(name, options);
                   break;
 
+              case "array":  // not support
+                  schema.StringSet(name, options);
+                  break;
+
+//              case "json":
 //              case "string":
 //              case "binary":
-//              case "array":   // not support
-//              case "json":
               default:
 //                  console.log("Set String", name);
                   schema.String(name, options);
@@ -768,6 +774,46 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
           return items;
       }
 
+
+      /*
+       collection.definition;
+       { user_id: { primaryKey: true, unique: true, type: 'string' },
+       range: { primaryKey: true, unique: true, type: 'integer' },
+       title: { type: 'string' },
+       chart1: { type: 'json' },
+       chart2: { type: 'json' },
+       chart3: { type: 'json' },
+       createdAt: { type: 'datetime' },
+       updatedAt: { type: 'datetime' } },
+       */
+      /**
+       * convert values
+       * @param definition
+       * @param values
+       * @private
+       */
+      , _valueEncode: function(definition, values){
+          adapter._valueConvert(definition, values, true);
+      }
+      , _valueDecode: function(definition, values){
+          adapter._valueConvert(definition, values, false);
+      }
+      , _valueConvert: function(definition, values, encode){
+          for(var key in definition){
+              var type = definition[key].type;
+
+              if(require("lodash").has(values, key)){
+                  switch(type){
+                      case "json":
+                          if(!encode) values[key] = JSON.parse(values[key]);
+                          else values[key] = JSON.stringify(values[key]);
+                          break;
+                      default :
+                          break;
+                  }
+              }
+          }
+      }
   };
 
 
