@@ -452,6 +452,7 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
         query.exec( function(err, res){
            if(!err){
 //               console.log("success", adapter._resultFormat(res));
+               adapter._valueDecode(collection.definition,res.attrs);
                cb(null, adapter._resultFormat(res));
            }
            else{
@@ -495,9 +496,9 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
          * @return {[type]}                  [description]
          */
       , create: function(connection, collectionName, values, cb) {
-console.info("adaptor::create", collectionName);
-console.info("values", values);
-console.log("collection", _modelReferences[collectionName]);
+//console.info("adaptor::create", collectionName);
+//console.info("values", values);
+//console.log("collection", _modelReferences[collectionName]);
 
             var Model = adapter._getModel(collectionName);
 
@@ -542,13 +543,14 @@ console.log("collection", _modelReferences[collectionName]);
 
                 // If you need to access your private data for this collection:
                 var collection = _modelReferences[collectionName];
+                adapter._valueEncode(collection.definition,values);
 
                 // id filter (bug?)
                 if (adapter.keyId in values && typeof values[adapter.keyId] === 'number'){
                     if ('where' in options && adapter.keyId in options.where){
                         values[adapter.keyId] = options.where[adapter.keyId];
-            }
-        }
+                    }
+                }
 
       // 1. Filter, paginate, and sort records from the datastore.
       //    You should end up w/ an array of objects as a result.
@@ -565,6 +567,7 @@ console.log("collection", _modelReferences[collectionName]);
                 cb(err);
             } else {
 //                console.log('add model data',res.attrs);
+                adapter._valueDecode(collection.definition,res.attrs);
                 // Respond with error or the newly-created record.
                 cb(null, [res.attrs]);
             }
