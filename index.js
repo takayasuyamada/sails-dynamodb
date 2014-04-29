@@ -399,6 +399,7 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
 //console.info("adaptor::find", collectionName);
 //console.info("::option", options);
 
+		var collection = _modelReferences[collectionName];
         // Options object is normalized for you:
         //
         // options.where
@@ -434,7 +435,6 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
         // scan mode
             var query = adapter._getModel(collectionName).scan();
             // If you need to access your private data for this collection:
-            var collection = _modelReferences[collectionName];
 
             if ('where' in options && !options.where){
                 for(var key in options['where']){
@@ -451,7 +451,7 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
 
         query.exec( function(err, res){
            if(!err){
-//               console.log("success", adapter._resultFormat(res));
+               console.log("success", adapter._resultFormat(res));
                adapter._valueDecode(collection.definition,res.attrs);
                cb(null, adapter._resultFormat(res));
            }
