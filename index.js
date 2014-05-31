@@ -11,6 +11,7 @@
 var Vogels = require('vogels');
 var AWS = Vogels.AWS;
 var _ = require('lodash');
+var DynamoDB = false;
 
 /**
  * Sails Boilerplate Adapter
@@ -330,10 +331,10 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
 
         // extremly simple table names
         var tableName = collectionName.toLowerCase() + 's'; // 's' is vogels spec
-        if(dynamoDB === false)
-            dynamoDB = new AWS.DynamoDB();
+        if(DynamoDB === false)
+            DynamoDB = new AWS.DynamoDB();
 
-        dynamoDB.describeTable({TableName:tableName}, function(err, res){
+        DynamoDB.describeTable({TableName:tableName}, function(err, res){
             if (err) {
                 if('code' in err && err['code'] === 'ResourceNotFoundException'){
                     cb();
