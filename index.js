@@ -329,7 +329,7 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
 
         // extremly simple table names
         var tableName = collectionName.toLowerCase() + 's'; // 's' is vogels spec
-        (new AWS.DynamoDB()).describeTable({TableName:tableName}, function(err, res){
+        Vogels.dynamodb.describeTable({TableName:tableName}, function(err, res){
             if (err) {
                 if('code' in err && err['code'] === 'ResourceNotFoundException'){
                     cb();
