@@ -241,7 +241,7 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
 
       var error = null;
         try{
-            AWS.config.loadFromPath('./credentials.json');
+            AWS.config.update(JSON.parse(AWS.util.readFileSync('./credentials.json')));
         }
         catch (e) {
             e.message = e.message + ". Please create credentials.json on your sails project root and restart node";
@@ -331,8 +331,15 @@ var primaryKeys = require("lodash").where(collection.definition, { primaryKey: t
 
         // extremly simple table names
         var tableName = collectionName.toLowerCase() + 's'; // 's' is vogels spec
-        if(DynamoDB === false)
-            DynamoDB = new AWS.DynamoDB();
+        var Endpoint = collection.connections[connection]['config']['endPoint'];
+        if(DynamoDB === false) {
+            DynamoDB = new AWS.DynamoDB(
+                Endpoint ? {endpoint: new AWS.Endpoint(Endpoint)}
+                    : null
+            );
+            if (Endpoint)
+                Vogels.dynamoDriver(DynamoDB);
+        }
 
         DynamoDB.describeTable({TableName:tableName}, function(err, res){
             if (err) {

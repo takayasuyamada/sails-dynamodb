@@ -32,7 +32,8 @@ module.exports.adapters = {
   },
   
   dynamoDb: {
-    adapter: "sails-dynamodb"
+    adapter: "sails-dynamodb",
+    endPoint: "http://localhost:8000", // Optional: add for DynamoDB local
   },
   
 };
