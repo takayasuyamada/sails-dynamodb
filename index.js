@@ -11,6 +11,32 @@ var Vogels = require('vogels');
 var AWS = Vogels.AWS;
 var _ = require('lodash');
 var DynamoDB = false;
+var filters = {
+  //?where={"name":{"null":true}}
+  null: false,
+  //?where={"name":{"notNull":true}}
+  notNull: false,
+  //?where={"name":{"equals":"firstName lastName"}}
+  equals: true,
+  //?where={"name":{"lte":"firstName lastName"}}
+  lte: true,
+  //?where={"name":{"lt":"firstName lastName"}}
+  lt: true,
+  //?where={"name":{"gte":"firstName lastName"}}
+  gte: true,
+  //?where={"name":{"gt":"firstName lastName"}}
+  gt: true,
+  //?where={"name":{"contains":"firstName lastName"}}
+  contains: true,
+  //?where={"name":{"contains":"firstName lastName"}}
+  notContains: true,
+  //?where={"name":{"beginsWith":"firstName"}}
+  beginsWith: true,
+  //?where={"name":{"in":["firstName lastName", "another name"]}}
+  in: true,
+  //?where={"name":{"between":["firstName, "lastName""]}}
+  between: true
+};
 
 /**
  * Sails Boilerplate Adapter
@@ -207,6 +233,14 @@ module.exports = (function () {
       });
       var primaryKeys = lodash.keys(list);
       return primaryKeys;
+    }, _keys: function (collectionName) {
+      var lodash = require("lodash");
+      var collection = _modelReferences[collectionName];
+
+      var list = lodash.pick(collection.definition, function (value, key) {
+        return (typeof value !== "undefined");
+      });
+      return lodash.keys(list);
     }
 
     /**
@@ -431,12 +465,24 @@ module.exports = (function () {
         var query = adapter._getModel(collectionName).scan();
         // If you need to access your private data for this collection:
 
-        if ('where' in options && !options.where) {
+        if ('where' in options && _.isObject(options.where)) {
           for (var key in options['where']) {
-            //console.log(options['where'][key]);
-            query = query.where(key).contains(options['where'][key]);
+            if (adapter._keys(collectionName).indexOf(key) === -1) {
+              return cb("Wrong attribute given : " + key);
+            }
+            var filter = _.keys(options['where'][key])[0];
+            if (filter in filters) {
+              try {
+                query = query.where(key)[filter](filters[filter] ? options['where'][key][filter] : null);
+              }
+              catch (e) {
+                return cb(e.message);
+              }
+            }
+            else {
+              return cb("Wrong filter given :" + filter);
+            }
           }
-
           query = adapter._searchCondition(query, options);
         }
         else {

@@ -50,6 +50,22 @@ module.exports.adapters = {
 };
 ```
 
+## Find
+Support for where is added as following:
+```
+  ?where={"name":{"null":true}}
+  ?where={"name":{"notNull":true}}
+  ?where={"name":{"equals":"firstName lastName"}}
+  ?where={"name":{"lte":"firstName lastName"}}
+  ?where={"name":{"lt":"firstName lastName"}}
+  ?where={"name":{"gte":"firstName lastName"}}
+  ?where={"name":{"gt":"firstName lastName"}}
+  ?where={"name":{"contains":"firstName lastName"}}
+  ?where={"name":{"contains":"firstName lastName"}}
+  ?where={"name":{"beginsWith":"firstName"}}
+  ?where={"name":{"in":["firstName lastName", "another name"]}}
+  ?where={"name":{"between":["firstName, "lastName""]}}
+```
 ## Testing
 
 Test are written with mocha. Integration tests are handled by the [waterline-adapter-tests](https://github.com/balderdashy/waterline-adapter-tests) project, which tests adapter methods against the latest Waterline API.
