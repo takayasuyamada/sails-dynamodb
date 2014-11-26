@@ -501,11 +501,8 @@ module.exports = (function () {
               return cb("Wrong filter given :" + filter);
             }
           }
-          query = adapter._searchCondition(query, options);
         }
-        else {
-          query = adapter._searchCondition(query, options);
-        }
+        query = adapter._searchCondition(query, options);
       }
 
       query.exec(function (err, res) {
@@ -530,7 +527,14 @@ module.exports = (function () {
      * @private
      */, _searchCondition: function (query, options) {
       if ('sort' in options) {
-        query = query.sort(options.sort);
+        //according to http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_Query.html#DDB-Query-request-ScanIndexForward
+        var sort = _.keys(options.sort)[0];
+        if (sort == 1) {
+          query = query.ascending();
+        }
+        else if (sort == -1) {
+          query = query.descending();
+        }
       }
       if ('limit' in options) {
         query = query.limit(options.limit);

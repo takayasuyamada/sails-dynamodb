@@ -69,7 +69,7 @@ Support for where is added as following:
 
 
 ## Pagination
-Support for where is added as following:
+Support for Pagination is added as following:
 1. First add a limit to current request
 ```
   /user?limit=2
