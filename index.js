@@ -436,43 +436,77 @@ module.exports = (function () {
       // options.skip
       // options.
 
-      // scan mode
-      var query = adapter._getModel(collectionName).scan(),
-        modelKeys = adapter._keys(collectionName);
+      // Filter, paginate, and sort records from the datastore.
+      // You should end up w/ an array of objects as a result.
+      // If no matches were found, this will be an empty array.
 
-      if ('where' in options && _.isObject(options.where)) {
-        for (var key in options['where']) {
-          if (modelKeys.indexOf(key) === -1) {
-            return cb("Wrong attribute given : " + key);
-          }
-          if (_.isString(options['where'][key])) {
-            try {
-              query = query.where(key).equals(options['where'][key]);
-            }
-            catch (e) {
-              return cb(e.message);
-            }
-            continue;
-          }
-          var filter = _.keys(options['where'][key])[0];
-          if (filter in filters) {
-            try {
-              query = query.where(key)[filter](filters[filter] ? options['where'][key][filter] : null);
-            }
-            catch (e) {
-              return cb(e.message);
-            }
-          }
-          else {
-            return cb("Wrong filter given :" + filter);
-          }
+      if ('limit' in options && options.limit < 2) {
+        // query mode
+        // get primarykeys
+        var primaryKeys = adapter._getPrimaryKeys(collectionName);
+        // get current condition
+        var wheres = require("lodash").keys(options.where);
+        // compare both of keys
+        var primaryQuery = require("lodash").intersection(primaryKeys, wheres);
+        // get model
+        var model = adapter._getModel(collectionName);
+        if (primaryQuery.length < 1) {  // secondary key search
+          var hashKey = wheres[0];
+          var query = model.query(options.where[hashKey]).usingIndex(wheres[0] + adapter.indexPrefix)
         }
-        query = adapter._searchCondition(query, options);
+        else {  // primary key search
+          var hashKey = primaryKeys[0];
+          var query = model.query(options.where[hashKey]);
+        }
+
       }
       else {
-        query = adapter._searchCondition(query, options);
-      }
+        // scan mode
+        var query = adapter._getModel(collectionName).scan(),
+          modelKeys = adapter._keys(collectionName);
 
+        if ('where' in options && _.isObject(options.where)) {
+          for (var key in options['where']) {
+            if (key == 'startKey') {
+              try {
+                query.startKey(JSON.parse(options['where'][key]));
+              }
+              catch (e) {
+                return cb("Wrong start key format :" + e.message);
+              }
+              continue;
+            }
+            if (modelKeys.indexOf(key) === -1) {
+              return cb("Wrong attribute given : " + key);
+            }
+            if (_.isString(options['where'][key])) {
+              try {
+                query.where(key).equals(options['where'][key]);
+              }
+              catch (e) {
+                return cb(e.message);
+              }
+              continue;
+            }
+            var filter = _.keys(options['where'][key])[0];
+            if (filter in filters) {
+              try {
+                query.where(key)[filter](filters[filter] ? options['where'][key][filter] : null);
+              }
+              catch (e) {
+                return cb(e.message);
+              }
+            }
+            else {
+              return cb("Wrong filter given :" + filter);
+            }
+          }
+          query = adapter._searchCondition(query, options);
+        }
+        else {
+          query = adapter._searchCondition(query, options);
+        }
+      }
 
       query.exec(function (err, res) {
         if (!err) {
@@ -488,26 +522,22 @@ module.exports = (function () {
 
       // Respond with an error, or the results.
 //      cb(null, []);
-    }
-    /**
+    }/**
      * search condition
      * @param query
      * @param options
      * @returns {*}
      * @private
      */, _searchCondition: function (query, options) {
-      if ('limit' in options) {
-//            query = query.limit(1);
-      }
-
-      if ('skip' in options) {
-      }
-
       if ('sort' in options) {
+        query = query.sort(options.sort);
       }
-
+      if ('limit' in options) {
+        query = query.limit(options.limit);
+      }
       return query
     }
+
 
 
     /**

@@ -66,6 +66,19 @@ Support for where is added as following:
   ?where={"name":{"in":["firstName lastName", "another name"]}}
   ?where={"name":{"between":["firstName, "lastName""]}}
 ```
+
+
+## Pagination
+Support for where is added as following:
+1. First add a limit to current request
+```
+  /user?limit=2
+```
+2. Then get the last primaryKey value and send it as startKey in the next request
+```
+  /user?limit=2&startKey={"PrimaryKey": "2"}
+```
+
 ## Testing
 
 Test are written with mocha. Integration tests are handled by the [waterline-adapter-tests](https://github.com/balderdashy/waterline-adapter-tests) project, which tests adapter methods against the latest Waterline API.
