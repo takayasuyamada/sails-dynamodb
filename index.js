@@ -436,62 +436,43 @@ module.exports = (function () {
       // options.skip
       // options.
 
-      // Filter, paginate, and sort records from the datastore.
-      // You should end up w/ an array of objects as a result.
-      // If no matches were found, this will be an empty array.
+      // scan mode
+      var query = adapter._getModel(collectionName).scan(),
+        modelKeys = adapter._keys(collectionName);
 
-      if ('limit' in options && options.limit < 2) {
-        // query mode
-        // get primarykeys
-        var primaryKeys = adapter._getPrimaryKeys(collectionName);
-        // get current condition
-        var wheres = require("lodash").keys(options.where);
-        // compare both of keys
-        var primaryQuery = require("lodash").intersection(primaryKeys, wheres);
-        // get model
-        var model = adapter._getModel(collectionName);
-        if (primaryQuery.length < 1) {  // secondary key search
-          var hashKey = wheres[0];
-          var query = model.query(options.where[hashKey]).usingIndex(wheres[0] + adapter.indexPrefix)
-        }
-        else {  // primary key search
-          var hashKey = primaryKeys[0];
-          var query = model.query(options.where[hashKey]);
-        }
-
-      }
-      else {
-        // scan mode
-        var query = adapter._getModel(collectionName).scan();
-        // If you need to access your private data for this collection:
-
-        if ('where' in options && _.isObject(options.where)) {
-          for (var key in options['where']) {
-            if (adapter._keys(collectionName).indexOf(key) === -1) {
-              return cb("Wrong attribute given : " + key);
+      if ('where' in options && _.isObject(options.where)) {
+        for (var key in options['where']) {
+          if (modelKeys.indexOf(key) === -1) {
+            return cb("Wrong attribute given : " + key);
+          }
+          if (_.isString(options['where'][key])) {
+            try {
+              query = query.where(key).equals(options['where'][key]);
             }
-            if (!_.isObject(options['where'][key])) {
-              continue;
+            catch (e) {
+              return cb(e.message);
             }
-            var filter = _.keys(options['where'][key])[0];
-            if (filter in filters) {
-              try {
-                query = query.where(key)[filter](filters[filter] ? options['where'][key][filter] : null);
-              }
-              catch (e) {
-                return cb(e.message);
-              }
+            continue;
+          }
+          var filter = _.keys(options['where'][key])[0];
+          if (filter in filters) {
+            try {
+              query = query.where(key)[filter](filters[filter] ? options['where'][key][filter] : null);
             }
-            else {
-              return cb("Wrong filter given :" + filter);
+            catch (e) {
+              return cb(e.message);
             }
           }
-          query = adapter._searchCondition(query, options);
+          else {
+            return cb("Wrong filter given :" + filter);
+          }
         }
-        else {
-          query = adapter._searchCondition(query, options);
-        }
+        query = adapter._searchCondition(query, options);
       }
+      else {
+        query = adapter._searchCondition(query, options);
+      }
+
 
       query.exec(function (err, res) {
         if (!err) {
