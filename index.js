@@ -470,6 +470,9 @@ module.exports = (function () {
             if (adapter._keys(collectionName).indexOf(key) === -1) {
               return cb("Wrong attribute given : " + key);
             }
+            if (!_.isObject(options['where'][key])) {
+              continue;
+            }
             var filter = _.keys(options['where'][key])[0];
             if (filter in filters) {
               try {
