@@ -425,8 +425,8 @@ module.exports = (function () {
      * @return {[type]}                  [description]
      */
     find: function (connection, collectionName, options, cb) {
-//console.info("adaptor::find", collectionName);
-//console.info("::option", options);
+      console.info("adaptor::find", collectionName);
+      console.info("::option", options);
 
       var collection = _modelReferences[collectionName];
       // Options object is normalized for you:
@@ -479,15 +479,6 @@ module.exports = (function () {
             if (modelKeys.indexOf(key) === -1) {
               return cb("Wrong attribute given : " + key);
             }
-            if (_.isString(options['where'][key])) {
-              try {
-                query.where(key).equals(options['where'][key]);
-              }
-              catch (e) {
-                return cb(e.message);
-              }
-              continue;
-            }
             var filter = _.keys(options['where'][key])[0];
             if (filter in filters) {
               try {
@@ -498,6 +489,18 @@ module.exports = (function () {
               }
             }
             else {
+              try {
+                if (_.isString(options['where'][key]) || _.isNumber(options['where'][key])) {
+                  query.where(key).equals(options['where'][key]);
+                }
+                else if (_.isArray(options['where'][key])) {
+                  query.where(key).in(options['where'][key]);
+                }
+                continue;
+              }
+              catch (e) {
+                return cb(e.message);
+              }
               return cb("Wrong filter given :" + filter);
             }
           }
@@ -612,9 +615,9 @@ module.exports = (function () {
       // 1. Filter, paginate, and sort records from the datastore.
       //    You should end up w/ an array of objects as a result.
       //    If no matches were found, this will be an empty array.
-      //    
+      //
       // 2. Update all result records with `values`.
-      // 
+      //
       // (do both in a single query if you can-- it's faster)
       var updateValues = require("lodash").assign(options.where, values);
 //console.log(updateValues);
@@ -656,9 +659,9 @@ module.exports = (function () {
       // 1. Filter, paginate, and sort records from the datastore.
       //    You should end up w/ an array of objects as a result.
       //    If no matches were found, this will be an empty array.
-      //    
+      //
       // 2. Destroy all result records.
-      // 
+      //
       // (do both in a single query if you can-- it's faster)
 
       // Return an error, otherwise it's declared a success.
