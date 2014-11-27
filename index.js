@@ -495,6 +495,8 @@ module.exports = (function () {
                 }
                 else if (_.isArray(options['where'][key])) {
                   query.where(key).in(options['where'][key]);
+                }else{
+                  return cb("Wrong value given : " + options['where'][key]);
                 }
                 continue;
               }
