@@ -110,11 +110,11 @@ module.exports = (function () {
       // ssl: false,
       // customThings: ['eh']
 
-      // If setting syncable, you should consider the migrate option, 
+      // If setting syncable, you should consider the migrate option,
       // which allows you to set how the sync will be performed.
       // It can be overridden globally in an app (config/adapters.js)
       // and on a per-model basis.
-      // 
+      //
       // IMPORTANT:
       // `migrate` is not a production data migration solution!
       // In production, always use `migrate: safe`
@@ -200,8 +200,8 @@ module.exports = (function () {
           }
         }
         // set primary key
-        var primaryKeys = adapter._getPrimaryKeys(collectionName);
-        var primaryKeys = require("lodash").difference(primaryKeys, ["id"]); // ignore "id"
+        primaryKeys = adapter._getPrimaryKeys(collectionName);
+        primaryKeys = require("lodash").difference(primaryKeys, ["id"]); // ignore "id"
 //            console.log("collection.definition", collection.definition);
         if (primaryKeys.length < 1)
           schema.UUID(adapter.keyId, {hashKey: true});
@@ -401,7 +401,7 @@ module.exports = (function () {
 
 
     // OVERRIDES NOT CURRENTLY FULLY SUPPORTED FOR:
-    // 
+    //
     // alter: function (collectionName, changes, cb) {},
     // addAttribute: function(collectionName, attrName, attrDef, cb) {},
     // removeAttribute: function(collectionName, attrName, attrDef, cb) {},
@@ -429,6 +429,8 @@ module.exports = (function () {
       console.info("::option", options);
 
       var collection = _modelReferences[collectionName];
+      var model = adapter._getModel(collectionName);
+      var query = null;
       // Options object is normalized for you:
       //
       // options.where
@@ -440,32 +442,29 @@ module.exports = (function () {
       // You should end up w/ an array of objects as a result.
       // If no matches were found, this will be an empty array.
 
-      if ('limit' in options && options.limit < 2) {
-        // query mode
-        // get primarykeys
+      if ('where' in options && _.isObject(options.where)) {
         var primaryKeys = adapter._getPrimaryKeys(collectionName);
         // get current condition
         var wheres = require("lodash").keys(options.where);
         // compare both of keys
         var primaryQuery = require("lodash").intersection(primaryKeys, wheres);
-        // get model
-        var model = adapter._getModel(collectionName);
-        if (primaryQuery.length < 1) {  // secondary key search
-          var hashKey = wheres[0];
-          var query = model.query(options.where[hashKey]).usingIndex(wheres[0] + adapter.indexPrefix)
-        }
-        else {  // primary key search
-          var hashKey = primaryKeys[0];
-          var query = model.query(options.where[hashKey]);
-        }
+        if (primaryQuery.length == wheres.length) { //TODO: search for indexes in wheres
+          var hashKey = null;
+//          if (primaryQuery.length < 1) {  // secondary key search
+//            hashKey = wheres[0];
+//            query = model.query(options.where[hashKey]).usingIndex(wheres[0] + adapter.indexPrefix)
+//          }
+//          else {  // primary key search
+          hashKey = primaryKeys[0];
+          query = model.query(options.where[hashKey]);
+//          }
 
-      }
-      else {
-        // scan mode
-        var query = adapter._getModel(collectionName).scan(),
-          modelKeys = adapter._keys(collectionName);
+        }
+        else {
+          // scan mode
+          query = model.scan();
+          var modelKeys = adapter._keys(collectionName);
 
-        if ('where' in options && _.isObject(options.where)) {
           for (var key in options['where']) {
             if (key == 'startKey') {
               try {
@@ -495,7 +494,8 @@ module.exports = (function () {
                 }
                 else if (_.isArray(options['where'][key])) {
                   query.where(key).in(options['where'][key]);
-                }else{
+                }
+                else {
                   return cb("Wrong value given : " + options['where'][key]);
                 }
                 continue;
@@ -507,9 +507,8 @@ module.exports = (function () {
             }
           }
         }
-        query = adapter._searchCondition(query, options);
       }
-
+      query = adapter._searchCondition(query, options, model);
       query.exec(function (err, res) {
         if (!err) {
           console.log("success", adapter._resultFormat(res));
@@ -530,19 +529,22 @@ module.exports = (function () {
      * @param options
      * @returns {*}
      * @private
-     */, _searchCondition: function (query, options) {
+     */, _searchCondition: function (query, options, model) {
+      if (!query) {
+        query = model.scan().loadAll();
+      }
       if ('sort' in options) {
         //according to http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_Query.html#DDB-Query-request-ScanIndexForward
         var sort = _.keys(options.sort)[0];
         if (sort == 1) {
-          query = query.ascending();
+          query.ascending();
         }
         else if (sort == -1) {
-          query = query.descending();
+          query.descending();
         }
       }
       if ('limit' in options) {
-        query = query.limit(options.limit);
+        query.limit(options.limit);
       }
       return query
     }
