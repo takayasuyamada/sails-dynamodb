@@ -531,7 +531,7 @@ module.exports = (function () {
      * @private
      */, _searchCondition: function (query, options, model) {
       if (!query) {
-        query = model.scan().loadAll();
+        query = model.scan();
       }
       if ('sort' in options) {
         //according to http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_Query.html#DDB-Query-request-ScanIndexForward
@@ -545,6 +545,8 @@ module.exports = (function () {
       }
       if ('limit' in options) {
         query.limit(options.limit);
+      }else{
+        query.loadAll();
       }
       return query
     }
