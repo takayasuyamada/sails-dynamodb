@@ -261,7 +261,12 @@ module.exports = (function () {
 
       var error = null;
       try {
-        AWS.config.update(JSON.parse(AWS.util.readFileSync('./credentials.json')));
+        //TODO: readme and remove credentials.json ref
+        AWS.config.update({
+          "accessKeyId": connection.accessKeyId,
+          "secretAccessKey": connection.secretAccessKey,
+          "region": connection.region
+        });
       }
       catch (e) {
         e.message = e.message + ". Please create credentials.json on your sails project root and restart node";
@@ -545,7 +550,8 @@ module.exports = (function () {
       }
       if ('limit' in options) {
         query.limit(options.limit);
-      }else{
+      }
+      else {
         query.loadAll();
       }
       return query
