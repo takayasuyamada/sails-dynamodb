@@ -12,8 +12,9 @@ Install is through NPM.
 ```bash
 $ sails new project && cd project
 $ npm install git://github.com/gadelkareem/sails-dynamodb.git
-$ cp node_modules/sails-dynamodb/credentials.example.json ./credentials.json  # & put your amazon keys
 ```
+Add your amazon keys to your adapter config
+
 Todo: to npm package
 
 
@@ -33,6 +34,9 @@ module.exports.adapters = {
   
   dynamoDb: {
     adapter: "sails-dynamodb",
+    accessKeyId: process.env.DYNAMO_ACCESS_KEY_ID,
+    secretAccessKey: process.env.DYNAMO_SECRET_ACCESS_KEY,
+    region: "us-west-1"
     endPoint: "http://localhost:8000", // Optional: add for DynamoDB local
   },
   
@@ -48,35 +52,6 @@ module.exports.adapters = {
   connection: 'dynamoDb'
   
 };
-```
-
-## Find
-Support for where is added as following:
-```
-  ?where={"name":{"null":true}}
-  ?where={"name":{"notNull":true}}
-  ?where={"name":{"equals":"firstName lastName"}}
-  ?where={"name":{"lte":"firstName lastName"}}
-  ?where={"name":{"lt":"firstName lastName"}}
-  ?where={"name":{"gte":"firstName lastName"}}
-  ?where={"name":{"gt":"firstName lastName"}}
-  ?where={"name":{"contains":"firstName lastName"}}
-  ?where={"name":{"contains":"firstName lastName"}}
-  ?where={"name":{"beginsWith":"firstName"}}
-  ?where={"name":{"in":["firstName lastName", "another name"]}}
-  ?where={"name":{"between":["firstName, "lastName""]}}
-```
-
-
-## Pagination
-Support for Pagination is added as following:
-1. First add a limit to current request
-```
-  /user?limit=2
-```
-2. Then get the last primaryKey value and send it as startKey in the next request
-```
-  /user?limit=2&startKey={"PrimaryKey": "2"}
 ```
 
 ## Testing

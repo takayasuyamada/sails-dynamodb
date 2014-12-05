@@ -102,7 +102,7 @@ module.exports = (function () {
     // Default configuration for collections
     // (same effect as if these properties were included at the top level of the model definitions)
     defaults: {
-      accessKeyId: null, secretAccessKey: null, region: 'us-west-1', credentialsFilePath: './credentials.json'
+      accessKeyId: null, secretAccessKey: null, region: 'us-west-1'
       // For example:
       // port: 3306,
       // host: 'localhost',
@@ -140,7 +140,6 @@ module.exports = (function () {
        { accessKeyId: null,
        secretAccessKey: null,
        region: 'us-west-1',
-       credentialsFilePath: './credentials.json',
        migrate: 'alter',
        adapter: 'sails-dynamodb' },
        _getModel: [Function],
@@ -161,7 +160,6 @@ module.exports = (function () {
        { accessKeyId: null,
        secretAccessKey: null,
        region: 'us-west-1',
-       credentialsFilePath: './credentials.json',
        migrate: 'alter',
        adapter: 'sails-dynamodb' },
        definition:
@@ -261,7 +259,6 @@ module.exports = (function () {
 
       var error = null;
       try {
-        //TODO: readme and remove credentials.json ref
         AWS.config.update({
           "accessKeyId": connection.accessKeyId,
           "secretAccessKey": connection.secretAccessKey,
@@ -269,7 +266,7 @@ module.exports = (function () {
         });
       }
       catch (e) {
-        e.message = e.message + ". Please create credentials.json on your sails project root and restart node";
+        e.message = e.message + ". Please make sure you added the right keys to your adapter config";
         error = e;
       }
       // Keep a reference to this collection
