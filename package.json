@@ -1,6 +1,6 @@
 {
   "name": "sails-dynamodb",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "Amazon DynamoDB adapter for Sails / Waterline",
   "main": "index.js",
   "scripts": {
@@ -54,10 +54,12 @@
   "bugs": {
     "url": "https://github.com/gadelkareem/sails-dynamodb/issues"
   },
-  "_id": "sails-dynamodb@0.10.0",
+  "_id": "sails-dynamodb@0.11.0",
   "dist": {
     "shasum": "2dc7fe333c4f0a95f92bff00f7e89f4c1a773220"
   },
   "_resolved": "git://github.com/gadelkareem/sails-dynamodb.git#da8474615e68a043115f9e943acca5e28dd7a0ab",
-  "_from": "sails-dynamodb@git://github.com/gadelkareem/sails-dynamodb.git"
+  "_from": "sails-dynamodb@*",
+  "homepage": "https://github.com/gadelkareem/sails-dynamodb",
+  "_shasum": "fbbe01ec1482df7edc9e9eec01ba60414a9007a4"
 }

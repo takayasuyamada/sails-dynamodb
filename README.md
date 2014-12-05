@@ -11,11 +11,9 @@ Install is through NPM.
 
 ```bash
 $ sails new project && cd project
-$ npm install git://github.com/gadelkareem/sails-dynamodb.git
+$ npm install sails-dynamodb --save
 ```
 Add your amazon keys to your adapter config
-
-Todo: to npm package
 
 
 ## Configuration
