@@ -239,6 +239,14 @@ module.exports = (function () {
         return (typeof value !== "undefined");
       });
       return lodash.keys(list);
+    }, _indexes: function (collectionName) {
+      var lodash = require("lodash");
+      var collection = _modelReferences[collectionName];
+
+      var list = lodash.pick(collection.definition, function (value, key) {
+        return ("index" in value && value.index === true)
+      });
+      return lodash.keys(list);
     }
 
     /**
@@ -446,21 +454,23 @@ module.exports = (function () {
 
       if ('where' in options && _.isObject(options.where)) {
         var primaryKeys = adapter._getPrimaryKeys(collectionName);
+        var modelIndexes = adapter._indexes(collectionName);
+
         // get current condition
         var wheres = require("lodash").keys(options.where);
         // compare both of keys
         var primaryQuery = require("lodash").intersection(primaryKeys, wheres);
-        if (primaryQuery.length == wheres.length) { //TODO: search for indexes in wheres
-          var hashKey = null;
-//          if (primaryQuery.length < 1) {  // secondary key search
-//            hashKey = wheres[0];
-//            query = model.query(options.where[hashKey]).usingIndex(wheres[0] + adapter.indexPrefix)
-//          }
-//          else {  // primary key search
+        var indexQuery = require("lodash").intersection(modelIndexes, wheres);
+
+        if (primaryQuery.length == wheres.length) {
           hashKey = primaryKeys[0];
           query = model.query(options.where[hashKey]);
-//          }
-
+          sails.log.verbose('using PK ' + hashKey)
+        }
+        else if (indexQuery.length == wheres.length) {
+          hashKey = wheres[0];
+          query = model.query(options.where[hashKey]).usingIndex(hashKey + adapter.indexPrefix);
+          sails.log.verbose('using index ' + wheres[0] + adapter.indexPrefix)
         }
         else {
           // scan mode
