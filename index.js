@@ -176,7 +176,7 @@ module.exports = (function () {
        identity: 'user' }
        */
 
-      var primaryKeys = require("lodash").where(collection.definition, {primaryKey: true});
+      var primaryKeys = _.where(collection.definition, {primaryKey: true});
 //console.log("primaryKeys", primaryKeys);
 
       return Vogels.define(collectionName, function (schema) {
@@ -199,14 +199,14 @@ module.exports = (function () {
         }
         // set primary key
         primaryKeys = adapter._getPrimaryKeys(collectionName);
-        primaryKeys = require("lodash").difference(primaryKeys, ["id"]); // ignore "id"
+        primaryKeys = _.difference(primaryKeys, ["id"]); // ignore "id"
 //            console.log("collection.definition", collection.definition);
         if (primaryKeys.length < 1)
           schema.UUID(adapter.keyId, {hashKey: true});
         else {
-          if (!require("lodash").isUndefined(primaryKeys[0])) {
+          if (!_.isUndefined(primaryKeys[0])) {
             adapter._setColumnType(schema, primaryKeys[0], columns[primaryKeys[0]], {hashKey: true});
-            if (!require("lodash").isUndefined(primaryKeys[1])) {
+            if (!_.isUndefined(primaryKeys[1])) {
               adapter._setColumnType(schema, primaryKeys[1], columns[primaryKeys[1]], {rangeKey: true});
             }
           }
@@ -221,7 +221,7 @@ module.exports = (function () {
         schema.Date('updatedAt', {default: Date.now});
       });
     }, _getPrimaryKeys: function (collectionName) {
-      var lodash = require("lodash");
+      var lodash = _;
       var collection = _modelReferences[collectionName];
 
       var maps = lodash.mapValues(collection.definition, "primaryKey");
@@ -232,7 +232,7 @@ module.exports = (function () {
       var primaryKeys = lodash.keys(list);
       return primaryKeys;
     }, _keys: function (collectionName) {
-      var lodash = require("lodash");
+      var lodash = _;
       var collection = _modelReferences[collectionName];
 
       var list = lodash.pick(collection.definition, function (value, key) {
@@ -240,7 +240,7 @@ module.exports = (function () {
       });
       return lodash.keys(list);
     }, _indexes: function (collectionName) {
-      var lodash = require("lodash");
+      var lodash = _;
       var collection = _modelReferences[collectionName];
 
       var list = lodash.pick(collection.definition, function (value, key) {
@@ -453,70 +453,74 @@ module.exports = (function () {
       // If no matches were found, this will be an empty array.
 
       if ('where' in options && _.isObject(options.where)) {
-        var primaryKeys = adapter._getPrimaryKeys(collectionName);
-        var modelIndexes = adapter._indexes(collectionName);
+        var query = null,
+          primaryKeys = adapter._getPrimaryKeys(collectionName),
+          modelIndexes = adapter._indexes(collectionName),
+          modelKeys = adapter._keys(collectionName);
 
         // get current condition
-        var wheres = require("lodash").keys(options.where);
+        var wheres = _.keys(options.where);
         // compare both of keys
-        var primaryQuery = require("lodash").intersection(primaryKeys, wheres);
-        var indexQuery = require("lodash").intersection(modelIndexes, wheres);
+        var primaryQuery = _.intersection(primaryKeys, wheres);
+        var indexQuery = _.intersection(modelIndexes, wheres);
 
         if (primaryQuery.length == wheres.length) {
-          hashKey = primaryKeys[0];
+          var hashKey = primaryKeys[0];
           query = model.query(options.where[hashKey]);
           sails.log.verbose('using PK ' + hashKey)
+          options.where = _.without(options.where, hashKey);
         }
-        else if (indexQuery.length == wheres.length) {
-          hashKey = wheres[0];
+        else if (indexQuery.length > 0) {
+          var hashKey = indexQuery[0];
           query = model.query(options.where[hashKey]).usingIndex(hashKey + adapter.indexPrefix);
-          sails.log.verbose('using index ' + wheres[0] + adapter.indexPrefix)
+          sails.log.verbose('using index ' + wheres[0] + adapter.indexPrefix);
+          delete options.where[hashKey];
         }
-        else {
-          // scan mode
-          query = model.scan();
-          var modelKeys = adapter._keys(collectionName);
 
-          for (var key in options['where']) {
-            if (key == 'startKey') {
-              try {
-                query.startKey(JSON.parse(options['where'][key]));
-              }
-              catch (e) {
-                return cb("Wrong start key format :" + e.message);
-              }
-              continue;
+        // scan mode
+        if (!query) {
+          query = model.scan();
+          sails.log.verbose('using scan() ');
+        }
+
+        sails.log(options.where);
+        for (var key in options.where) {
+          if (key == 'startKey') {
+            try {
+              query.startKey(JSON.parse(options.where[key]));
             }
-            if (modelKeys.indexOf(key) === -1) {
-              return cb("Wrong attribute given : " + key);
+            catch (e) {
+              return cb("Wrong start key format :" + e.message);
             }
-            var filter = _.keys(options['where'][key])[0];
-            if (filter in filters) {
-              try {
-                query.where(key)[filter](filters[filter] ? options['where'][key][filter] : null);
-              }
-              catch (e) {
-                return cb(e.message);
-              }
+            continue;
+          }
+          if (modelKeys.indexOf(key) === -1) {
+            return cb("Wrong attribute given : " + key);
+          }
+          var filter = _.keys(options.where[key])[0];
+          if (filter in filters) {
+            try {
+              query.where(key)[filter](filters[filter] ? options.where[key][filter] : null);
             }
-            else {
-              try {
-                if (_.isString(options['where'][key]) || _.isNumber(options['where'][key])) {
-                  query.where(key).equals(options['where'][key]);
-                }
-                else if (_.isArray(options['where'][key])) {
-                  query.where(key).in(options['where'][key]);
-                }
-                else {
-                  return cb("Wrong value given : " + options['where'][key]);
-                }
+            catch (e) {
+              return cb(e.message);
+            }
+          }
+          else {
+            try {
+              if (_.isString(options.where[key]) || _.isNumber(options.where[key])) {
+                query.where(key).equals(options.where[key]);
                 continue;
               }
-              catch (e) {
-                return cb(e.message);
+              else if (_.isArray(options.where[key])) {
+                query.where(key).in(options.where[key]);
+                continue;
               }
-              return cb("Wrong filter given :" + filter);
             }
+            catch (e) {
+              return cb(e.message);
+            }
+            return cb("Wrong filter given :" + filter);
           }
         }
       }
@@ -638,7 +642,7 @@ module.exports = (function () {
       // 2. Update all result records with `values`.
       //
       // (do both in a single query if you can-- it's faster)
-      var updateValues = require("lodash").assign(options.where, values);
+      var updateValues = _.assign(options.where, values);
 //console.log(updateValues);
       var current = Model.update(updateValues, function (err, res) {
         if (err) {
@@ -805,7 +809,7 @@ module.exports = (function () {
       // set columns
 //          console.log("name:", name);
 //          console.log("attr:", attr);
-      var type = (require("lodash").isString(attr)) ? attr : attr.type;
+      var type = (_.isString(attr)) ? attr : attr.type;
 
       switch (type) {
         case "date":
@@ -881,7 +885,7 @@ module.exports = (function () {
       for (var key in definition) {
         var type = definition[key].type;
 
-        if (require("lodash").has(values, key)) {
+        if (_.has(values, key)) {
           switch (type) {
             case "json":
               if (!encode) values[key] = JSON.parse(values[key]);
