@@ -466,9 +466,11 @@ module.exports = (function () {
 
         if (primaryQuery.length == wheres.length) {
           var hashKey = primaryKeys[0];
-          query = model.query(options.where[hashKey]);
-          sails.log.verbose('using PK ' + hashKey)
-          options.where = _.without(options.where, hashKey);
+          if (!_.isArray(options.where[hashKey])) {
+            query = model.query(options.where[hashKey]);
+            sails.log.verbose('using PK ' + hashKey)
+            options.where = _.without(options.where, hashKey);
+          }
         }
         else if (indexQuery.length > 0) {
           var hashKey = indexQuery[0];
