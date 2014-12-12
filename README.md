@@ -58,6 +58,7 @@ Support for where is added as following:
   ?where={"name":{"null":true}}
   ?where={"name":{"notNull":true}}
   ?where={"name":{"equals":"firstName lastName"}}
+  ?where={"name":{"ne":"firstName lastName"}}
   ?where={"name":{"lte":"firstName lastName"}}
   ?where={"name":{"lt":"firstName lastName"}}
   ?where={"name":{"gte":"firstName lastName"}}

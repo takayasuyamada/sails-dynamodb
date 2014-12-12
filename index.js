@@ -18,6 +18,8 @@ var filters = {
   notNull: false,
   //?where={"name":{"equals":"firstName lastName"}}
   equals: true,
+  //?where={"name":{"ne":"firstName lastName"}}
+  ne: true,
   //?where={"name":{"lte":"firstName lastName"}}
   lte: true,
   //?where={"name":{"lt":"firstName lastName"}}
@@ -485,7 +487,6 @@ module.exports = (function () {
           sails.log.verbose('using scan() ');
         }
 
-        sails.log(options.where);
         for (var key in options.where) {
           if (key == 'startKey') {
             try {
