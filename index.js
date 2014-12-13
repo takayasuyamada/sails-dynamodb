@@ -454,7 +454,7 @@ module.exports = (function () {
       // You should end up w/ an array of objects as a result.
       // If no matches were found, this will be an empty array.
 
-      if ('where' in options && _.isObject(options.where)) {
+      if (options && 'where' in options && _.isObject(options.where)) {
         var query = null,
           primaryKeys = adapter._getPrimaryKeys(collectionName),
           modelIndexes = adapter._indexes(collectionName),
@@ -466,7 +466,7 @@ module.exports = (function () {
         var primaryQuery = _.intersection(primaryKeys, wheres);
         var indexQuery = _.intersection(modelIndexes, wheres);
 
-        if (primaryQuery.length == wheres.length) {
+        if (primaryQuery.length > 0 && wheres.length < 2) {
           var hashKey = primaryKeys[0];
           if (!_.isArray(options.where[hashKey])) {
             query = model.query(options.where[hashKey]);
@@ -474,7 +474,7 @@ module.exports = (function () {
             options.where = _.without(options.where, hashKey);
           }
         }
-        else if (indexQuery.length > 0) {
+        else if (indexQuery.length > 0 && wheres.length < 2) {
           var hashKey = indexQuery[0];
           query = model.query(options.where[hashKey]).usingIndex(hashKey + adapter.indexPrefix);
           sails.log.verbose('using index ' + wheres[0] + adapter.indexPrefix);
@@ -551,6 +551,9 @@ module.exports = (function () {
      */, _searchCondition: function (query, options, model) {
       if (!query) {
         query = model.scan();
+      }
+      if (!options) {
+        return query;
       }
       if ('sort' in options) {
         //according to http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_Query.html#DDB-Query-request-ScanIndexForward
