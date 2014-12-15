@@ -307,10 +307,10 @@ module.exports = (function () {
      * @return {[type]}                  [description]
      */
     define: function (connection, collectionName, definition, cb) {
-//console.info("adaptor::define");
-//console.info("::collectionName", collectionName);
-//console.info("::definition", definition);
-//console.info("::model", adapter._getModel(collectionName));
+//sails.log.silly("adaptor::define");
+//sails.log.silly("::collectionName", collectionName);
+//sails.log.silly("::definition", definition);
+//sails.log.silly("::model", adapter._getModel(collectionName));
 
       // If you need to access your private data for this collection:
       var collection = _modelReferences[collectionName];
@@ -323,7 +323,7 @@ module.exports = (function () {
           collectionName: {readCapacity: 1, writeCapacity: 1}
         }, function (err) {
           if (err) {
-            console.warn('Error creating tables', err);
+            sails.log.error('Error creating tables', err);
             cb(err);
           }
           else {
@@ -349,7 +349,7 @@ module.exports = (function () {
      * @return {[type]}                  [description]
      */
     describe: function (connection, collectionName, cb) {
-//console.info("adaptor::describe");
+//sails.log.silly("adaptor::describe");
 //console.log("::connection",connection);
 //console.log("::collection",collectionName);
 
@@ -378,7 +378,7 @@ module.exports = (function () {
             cb();
           }
           else {
-            console.warn('Error describe tables' + __filename, err);
+            sails.log.error('Error describe tables' + __filename, err);
             cb(err);
           }
 //                console.log(err); // an error occurred
@@ -403,10 +403,10 @@ module.exports = (function () {
      * @return {[type]}                  [description]
      */
     drop: function (connection, collectionName, relations, cb) {
-//console.info("adaptor::drop", collectionName);
+//sails.log.silly("adaptor::drop", collectionName);
       // If you need to access your private data for this collection:
       var collection = _modelReferences[collectionName];
-//console.warn('drop: not supported')
+//sails.log.error('drop: not supported')
       // Drop a "table" or "collection" schema from the data store
       cb();
     },
@@ -437,12 +437,13 @@ module.exports = (function () {
      * @return {[type]}                  [description]
      */
     find: function (connection, collectionName, options, cb) {
-      console.info("adaptor::find", collectionName);
-      console.info("::option", options);
+      sails.log.silly("adaptor::find", collectionName);
+      sails.log.silly("::option", options);
 
-      var collection = _modelReferences[collectionName];
-      var model = adapter._getModel(collectionName);
-      var query = null;
+      var collection = _modelReferences[collectionName],
+        model = adapter._getModel(collectionName),
+        query = null,
+        hashKey = null;
       // Options object is normalized for you:
       //
       // options.where
@@ -455,10 +456,11 @@ module.exports = (function () {
       // If no matches were found, this will be an empty array.
 
       if (options && 'where' in options && _.isObject(options.where)) {
-        var query = null,
-          primaryKeys = adapter._getPrimaryKeys(collectionName),
+        var primaryKeys = adapter._getPrimaryKeys(collectionName),
           modelIndexes = adapter._indexes(collectionName),
           modelKeys = adapter._keys(collectionName);
+
+        query = null;
 
         // get current condition
         var wheres = _.keys(options.where);
@@ -467,24 +469,24 @@ module.exports = (function () {
         var indexQuery = _.intersection(modelIndexes, wheres);
 
         if (primaryQuery.length > 0 && wheres.length < 2) {
-          var hashKey = primaryKeys[0];
+          hashKey = primaryKeys[0];
           if (!_.isArray(options.where[hashKey])) {
             query = model.query(options.where[hashKey]);
-            sails.log.verbose('using PK ' + hashKey)
+            sails.log.silly('using PK ' + hashKey)
             options.where = _.without(options.where, hashKey);
           }
         }
         else if (indexQuery.length > 0 && wheres.length < 2) {
-          var hashKey = indexQuery[0];
+          hashKey = indexQuery[0];
           query = model.query(options.where[hashKey]).usingIndex(hashKey + adapter.indexPrefix);
-          sails.log.verbose('using index ' + wheres[0] + adapter.indexPrefix);
+          sails.log.silly('using index ' + wheres[0] + adapter.indexPrefix);
           delete options.where[hashKey];
         }
 
         // scan mode
         if (!query) {
           query = model.scan();
-          sails.log.verbose('using scan() ');
+          sails.log.silly('using scan() ');
         }
 
         for (var key in options.where) {
@@ -535,7 +537,7 @@ module.exports = (function () {
           cb(null, adapter._resultFormat(res));
         }
         else {
-          console.warn('Error exec query:' + __filename, err);
+          sails.log.error('Error exec query:' + __filename, err);
           cb(err);
         }
       });
@@ -585,8 +587,8 @@ module.exports = (function () {
      * @param  {Function} cb             [description]
      * @return {[type]}                  [description]
      */, create: function (connection, collectionName, values, cb) {
-//console.info("adaptor::create", collectionName);
-//console.info("values", values);
+//sails.log.silly("adaptor::create", collectionName);
+//sails.log.silly("values", values);
 //console.log("collection", _modelReferences[collectionName]);
 
       var Model = adapter._getModel(collectionName);
@@ -598,7 +600,7 @@ module.exports = (function () {
       // Create a single new model (specified by `values`)
       var current = Model.create(values, function (err, res) {
         if (err) {
-          console.warn(__filename + ", create error:", err);
+          sails.log.error(__filename + ", create error:", err);
           cb(err);
         }
         else {
@@ -625,9 +627,9 @@ module.exports = (function () {
      * @return {[type]}                  [description]
      */
     update: function (connection, collectionName, options, values, cb) {
-//console.info("adaptor::update", collectionName);
-//console.info("::options", options);
-//console.info("::values", values);
+//sails.log.silly("adaptor::update", collectionName);
+//sails.log.silly("::options", options);
+//sails.log.silly("::values", values);
       var Model = adapter._getModel(collectionName);
 
       // If you need to access your private data for this collection:
@@ -652,7 +654,7 @@ module.exports = (function () {
 //console.log(updateValues);
       var current = Model.update(updateValues, function (err, res) {
         if (err) {
-          console.warn('Error update data' + __filename, err);
+          sails.log.error('Error update data' + __filename, err);
           cb(err);
         }
         else {
@@ -677,8 +679,8 @@ module.exports = (function () {
      * @return {[type]}                  [description]
      */
     destroy: function (connection, collectionName, options, cb) {
-//console.info("adaptor::destory", collectionName);
-//console.info("options", options);
+//sails.log.silly("adaptor::destory", collectionName);
+//sails.log.silly("options", options);
       var Model = adapter._getModel(collectionName);
 
       // If you need to access your private data for this collection:
@@ -698,7 +700,7 @@ module.exports = (function () {
         var values = options.where;
         var current = Model.destroy(values, function (err, res) {
           if (err) {
-            console.warn('Error destory data' + __filename, err);
+            sails.log.error('Error destory data' + __filename, err);
             cb(err);
           }
           else {
