@@ -71,15 +71,15 @@ module.exports = (function () {
   //
   // Keep in mind that models can be configured to use different databases
   // within the same app, at the same time.
-  // 
+  //
   // i.e. if you're writing a MariaDB adapter, you should be aware that one
   // model might be configured as `host="localhost"` and another might be using
-  // `host="foo.com"` at the same time.  Same thing goes for user, database, 
+  // `host="foo.com"` at the same time.  Same thing goes for user, database,
   // password, or any other config.
   //
   // You don't have to support this feature right off the bat in your
   // adapter, but it ought to get done eventually.
-  // 
+  //
   // Sounds annoying to deal with...
   // ...but it's not bad.  In each method, acquire a connection using the config
   // for the current model (looking it up from `_modelReferences`), establish
@@ -87,7 +87,7 @@ module.exports = (function () {
   // Finally, as an optimization, you might use a db pool for each distinct
   // connection configuration, partioning pools for each separate configuration
   // for your adapter (i.e. worst case scenario is a pool for each model, best case
-  // scenario is one single single pool.)  For many databases, any change to 
+  // scenario is one single single pool.)  For many databases, any change to
   // host OR database OR user OR password = separate pool.
   var _dbPools = {};
 
