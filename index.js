@@ -486,7 +486,7 @@ module.exports = (function () {
         // scan mode
         if (!query) {
           query = model.scan();
-          sails.log.silly('using scan() ');
+          //sails.log.silly('using scan() ');
         }
 
         for (var key in options.where) {
