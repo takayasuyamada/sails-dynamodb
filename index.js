@@ -323,7 +323,7 @@ module.exports = (function () {
           collectionName: {readCapacity: 1, writeCapacity: 1}
         }, function (err) {
           if (err) {
-            sails.log.error('Error creating tables', err);
+            //sails.log.error('Error creating tables', err);
             cb(err);
           }
           else {
@@ -378,7 +378,7 @@ module.exports = (function () {
             cb();
           }
           else {
-            sails.log.error('Error describe tables' + __filename, err);
+            //sails.log.error('Error describe tables' + __filename, err);
             cb(err);
           }
 //                console.log(err); // an error occurred
@@ -437,8 +437,8 @@ module.exports = (function () {
      * @return {[type]}                  [description]
      */
     find: function (connection, collectionName, options, cb) {
-      sails.log.silly("adaptor::find", collectionName);
-      sails.log.silly("::option", options);
+      //sails.log.silly("adaptor::find", collectionName);
+      //sails.log.silly("::option", options);
 
       var collection = _modelReferences[collectionName],
         model = adapter._getModel(collectionName),
@@ -472,14 +472,14 @@ module.exports = (function () {
           hashKey = primaryKeys[0];
           if (!_.isArray(options.where[hashKey])) {
             query = model.query(options.where[hashKey]);
-            sails.log.silly('using PK ' + hashKey)
+            //sails.log.silly('using PK ' + hashKey)
             options.where = _.without(options.where, hashKey);
           }
         }
         else if (indexQuery.length > 0 && wheres.length < 2) {
           hashKey = indexQuery[0];
           query = model.query(options.where[hashKey]).usingIndex(hashKey + adapter.indexPrefix);
-          sails.log.silly('using index ' + wheres[0] + adapter.indexPrefix);
+          //sails.log.silly('using index ' + wheres[0] + adapter.indexPrefix);
           delete options.where[hashKey];
         }
 
@@ -537,7 +537,7 @@ module.exports = (function () {
           cb(null, adapter._resultFormat(res));
         }
         else {
-          sails.log.error('Error exec query:' + __filename, err);
+          //sails.log.error('Error exec query:' + __filename, err);
           cb(err);
         }
       });
@@ -654,7 +654,7 @@ module.exports = (function () {
 //console.log(updateValues);
       var current = Model.update(updateValues, function (err, res) {
         if (err) {
-          sails.log.error('Error update data' + __filename, err);
+          //sails.log.error('Error update data' + __filename, err);
           cb(err);
         }
         else {
@@ -700,7 +700,7 @@ module.exports = (function () {
         var values = options.where;
         var current = Model.destroy(values, function (err, res) {
           if (err) {
-            sails.log.error('Error destory data' + __filename, err);
+            //sails.log.error('Error destory data' + __filename, err);
             cb(err);
           }
           else {
