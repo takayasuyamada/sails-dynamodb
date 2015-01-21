@@ -484,12 +484,16 @@ module.exports = (function () {
         }
 
         // scan mode
+        var scanning = false;
         if (!query) {
+          scanning = true;
           query = model.scan();
           //sails.log.silly('using scan() ');
         }
 
         for (var key in options.where) {
+          
+          // Using startKey?
           if (key == 'startKey') {
             try {
               query.startKey(JSON.parse(options.where[key]));
@@ -499,13 +503,18 @@ module.exports = (function () {
             }
             continue;
           }
+          
+          // Okay, in the case that we're not scanning,
+          // we need to use where for the range and filter for other stuff
+          var queryOp = (primaryKeys[1] == key || scanning) ? 'where' : 'filter';
+          
           if (modelKeys.indexOf(key) === -1) {
             return cb("Wrong attribute given : " + key);
           }
           var filter = _.keys(options.where[key])[0];
           if (filter in filters) {
             try {
-              query.where(key)[filter](filters[filter] ? options.where[key][filter] : null);
+              query[queryOp](key)[filter](filters[filter] ? options.where[key][filter] : null);
             }
             catch (e) {
               return cb(e.message);
@@ -514,11 +523,11 @@ module.exports = (function () {
           else {
             try {
               if (_.isString(options.where[key]) || _.isNumber(options.where[key])) {
-                query.where(key).equals(options.where[key]);
+                query[queryOp](key).equals(options.where[key]);
                 continue;
               }
               else if (_.isArray(options.where[key])) {
-                query.where(key).in(options.where[key]);
+                query[queryOp](key).in(options.where[key]);
                 continue;
               }
             }
@@ -532,7 +541,7 @@ module.exports = (function () {
       query = adapter._searchCondition(query, options, model);
       query.exec(function (err, res) {
         if (!err) {
-          console.log("success", adapter._resultFormat(res));
+          //console.log("success", adapter._resultFormat(res));
           adapter._valueDecode(collection.definition, res.attrs);
           cb(null, adapter._resultFormat(res));
         }
@@ -600,7 +609,7 @@ module.exports = (function () {
       // Create a single new model (specified by `values`)
       var current = Model.create(values, function (err, res) {
         if (err) {
-          sails.log.error(__filename + ", create error:", err);
+          //sails.log.error(__filename + ", create error:", err);
           cb(err);
         }
         else {
