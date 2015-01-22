@@ -61,7 +61,8 @@ module.exports = (function () {
 
   // You'll want to maintain a reference to each collection
   // (aka model) that gets registered with this adapter.
-  var _modelReferences = {};
+  var _collectionReferences = {};
+  var _vogelsReferences = {};
 
   var _definedTables = {};
 
@@ -93,18 +94,24 @@ module.exports = (function () {
 
   var adapter = {
 
-    identity: 'sails-dynamodb', keyId: "id", indexPrefix: "-Index"
+    identity: 'sails-dynamodb',
+    keyId: "id",
+    indexPrefix: "-Index",
 
     // Set to true if this adapter supports (or requires) things like data types, validations, keys, etc.
     // If true, the schema for models using this adapter will be automatically synced when the server starts.
     // Not terribly relevant if your data store is not SQL/schemaful.
-    , syncable: true,
+    
+    // This doesn't make sense for dynamo, where the schema parts are locked-down during table creation.
+    syncable: false,
 
 
     // Default configuration for collections
     // (same effect as if these properties were included at the top level of the model definitions)
     defaults: {
-      accessKeyId: null, secretAccessKey: null, region: 'us-west-1'
+      accessKeyId: null,
+      secretAccessKey: null,
+      region: 'us-west-1',
       // For example:
       // port: 3306,
       // host: 'localhost',
@@ -124,133 +131,182 @@ module.exports = (function () {
       // drop   => Drop schema and data, then recreate it
       // alter  => Drop/add columns as necessary.
       // safe   => Don't change anything (good for production DBs)
-      , migrate: 'alter'
-//      , schema: false
-    }, _getModel: function (collectionName) {
+      
+      //Indices currently never change in dynamo
+      migrate: 'safe',
+//    schema: false
+    },
+    
+    _createModel: function (collectionName) {
+    
+      var collection = _collectionReferences[collectionName];
 
-      var collection = _modelReferences[collectionName];
-//console.log("currenct collection.definition", collection.definition);
-//console.log(collection);
-
-      /*
-       currenct collection
-       {
-       keyId: 'id',
-       indexPrefix: '-Index',
-       syncable: true,
-       defaults:
-       { accessKeyId: null,
-       secretAccessKey: null,
-       region: 'us-west-1',
-       migrate: 'alter',
-       adapter: 'sails-dynamodb' },
-       _getModel: [Function],
-       _getPrimaryKeys: [Function],
-       registerCollection: [Function],
-       teardown: [Function],
-       define: [Function],
-       describe: [Function],
-       drop: [Function],
-       find: [Function],
-       _searchCondition: [Function],
-       create: [Function],
-       update: [Function],
-       destroy: [Function],
-       _setColumnType: [Function],
-       _resultFormat: [Function],
-       config:
-       { accessKeyId: null,
-       secretAccessKey: null,
-       region: 'us-west-1',
-       migrate: 'alter',
-       adapter: 'sails-dynamodb' },
-       definition:
-       { user_id: { primaryKey: true, unique: true },
-       name: { type: 'string', index: true },
-       password: { type: 'string', index: true },
-       email: { type: 'string', index: true },
-       activated: { type: 'boolean', defaultsTo: false },
-       activationToken: { type: 'string' },
-       isSocial: { type: 'boolean' },
-       socialActivated: { type: 'boolean' },
-       createdAt: { type: 'datetime', default: 'NOW' },
-       updatedAt: { type: 'datetime', default: 'NOW' } },
-       identity: 'user' }
-       */
-
-      var primaryKeys = _.where(collection.definition, {primaryKey: true});
-//console.log("primaryKeys", primaryKeys);
-
-      return Vogels.define(collectionName, function (schema) {
-//console.log("_getModel", collectionName);
+      // Attrs with primaryKeys
+      var primaryKeys = _.filter(collection.definition, function(attr) { return !!attr.primaryKey } );
+      var primaryKeyNames =_.keys(primaryKeys);
+      
+      if (primaryKeyNames.length < 1 || primaryKeyNames.length > 2) {
+        throw new Error('Must have one or two primary key attributes.');
+      }
+      
+      // One primary key, then it's a hash
+      if (primaryKeyNames.length == 1) {
+        collection.definition[primaryKeyNames[0]].primaryKey = 'hash';
+      }
+      
+      var vogelsModel = Vogels.define(collectionName, function (schema) {
+        
         var columns = collection.definition;
-        var primaryKeys = []
-        var indexes = [];
+        
+        var indices = {};
+        
         // set columns
         for (var columnName in columns) {
+          
           var attributes = columns[columnName];
-
-//                console.log(columnName+":", attributes);
+        
           if (typeof attributes !== "function") {
+            
+            // Add column to Vogel model
             adapter._setColumnType(schema, columnName, attributes);
-            // search primarykey
-//                    if("primaryKey" in attributes)primaryKeys.push( columnName );
-            // search index
-            if ("index" in attributes) indexes.push(columnName);
-          }
-        }
-        // set primary key
-        primaryKeys = adapter._getPrimaryKeys(collectionName);
-        primaryKeys = _.difference(primaryKeys, ["id"]); // ignore "id"
-//            console.log("collection.definition", collection.definition);
-        if (primaryKeys.length < 1)
-          schema.UUID(adapter.keyId, {hashKey: true});
-        else {
-          if (!_.isUndefined(primaryKeys[0])) {
-            adapter._setColumnType(schema, primaryKeys[0], columns[primaryKeys[0]], {hashKey: true});
-            if (!_.isUndefined(primaryKeys[1])) {
-              adapter._setColumnType(schema, primaryKeys[1], columns[primaryKeys[1]], {rangeKey: true});
+            
+            // Save set indices
+            var index;
+            var indexParts;
+            var indexName;
+            var indexType;
+            
+            if ("index" in attributes && attributes.index !== 'secondary') {
+              
+              index = attributes.index;
+              
+              indexParts = adapter._parseIndex(index);
+              indexName = indexParts[0];
+              indexType = indexParts[1];
+              
+              if (typeof indices[indexName] === 'undefined') {
+                indices[indexName] = {};
+              }
+              
+              indices[indexName][indexType] = columnName;
+              
             }
+            
           }
+          
         }
-//                  schema.String( primaryKey, {hashKey: true});
-        for (var i = 0; i < indexes.length; i++) {
-          var key = indexes[i];
-          schema.globalIndex(key + adapter.indexPrefix, {hashKey: key});
+        
+        // Set global secondary indices
+        for (indexName in indices) {
+          schema.globalIndex(indexName, indices[indexName]);
         }
-
-        schema.Date('createdAt', {default: Date.now});
-        schema.Date('updatedAt', {default: Date.now});
+        
       });
-    }, _getPrimaryKeys: function (collectionName) {
+      
+      // Cache Vogels model
+      _vogelsReferences[collectionName] = vogelsModel;
+      
+      return vogelsModel;
+      
+    },
+    
+    _getModel: function(collectionName) {
+      return _vogelsReferences[collectionName] || this._createModel(collectionName);
+    },
+    
+    _getPrimaryKeys: function (collectionName) {
+      
       var lodash = _;
-      var collection = _modelReferences[collectionName];
+      var collection = _collectionReferences[collectionName];
 
       var maps = lodash.mapValues(collection.definition, "primaryKey");
       //            console.log(results);
       var list = lodash.pick(maps, function (value, key) {
         return typeof value !== "undefined";
       });
+      
       var primaryKeys = lodash.keys(list);
+      
       return primaryKeys;
-    }, _keys: function (collectionName) {
+    },
+    
+    _keys: function (collectionName) {
       var lodash = _;
-      var collection = _modelReferences[collectionName];
+      var collection = _collectionReferences[collectionName];
 
       var list = lodash.pick(collection.definition, function (value, key) {
         return (typeof value !== "undefined");
       });
       return lodash.keys(list);
-    }, _indexes: function (collectionName) {
+    },
+    
+    _indexes: function (collectionName) {
       var lodash = _;
-      var collection = _modelReferences[collectionName];
+      var collection = _collectionReferences[collectionName];
 
       var list = lodash.pick(collection.definition, function (value, key) {
         return ("index" in value && value.index === true)
       });
       return lodash.keys(list);
-    }
+    },
+    
+    // index: 'secondary'
+    _getLocalIndices: function(collectionName) {
+      
+    },
+    
+    // index: 'indexName-fieldType' (i.e. 'users-hash' and 'users-range')
+    _getGlobalIndices: function(collectionName) {
+      
+    },
 
+    _parseIndex: function(index) {
+      
+      // Two helpers
+      var stringEndsWith = function(str, needle) {
+          
+          if (str.indexOf(needle) !== -1 &&
+              str.indexOf(needle) === str.length-needle.length) {
+              return true;
+          } else {
+              return false;
+          }
+          
+      }
+      
+      var removeSuffixFromString = function(str, suffix) {
+          
+          if (stringEndsWith(str, suffix)) {
+              return str.slice(0, str.length-suffix.length);
+          } else {
+              return str;
+          }
+          
+      }
+      
+      var indexName;
+      var indexType;
+      
+      if (index === true) {
+        
+        indexName = columnName;
+        indexType = 'hashKey';
+      } else if (strEndsWith(index, '-hash')) {
+        
+        indexName = removeSuffixFromString(index, '-hash');
+        indexType = 'hashKey';
+      } else if (strEndsWith(index, '-range')) {
+        
+        indexName = removeSuffixFromString(index, '-range');
+        indexType = 'rangeKey';                
+      } else {
+        throw new Error('Index must be a hash or range.');
+      }
+      
+      return [indexName, indexType];
+      
+    },
+    
     /**
      *
      * This method runs when a model is initially registered
@@ -259,30 +315,36 @@ module.exports = (function () {
      * @param  string   collection [description]
      * @param  {Function} cb         [description]
      * @return {[type]}              [description]
-     */, registerConnection: function (connection, collections, cb) {
-//var sails = require("sails");
-//console.log("load registerConnection");
-//console.log("::connection",connection);
-//console.log("::collections",collections);
+     */
+     
+     registerConnection: function (connection, collections, cb) {
+
       if (!connection.identity) return cb(Errors.IdentityMissing);
       if (connections[connection.identity]) return cb(Errors.IdentityDuplicate);
 
-      var error = null;
       try {
+        
         AWS.config.update({
           "accessKeyId": connection.accessKeyId,
           "secretAccessKey": connection.secretAccessKey,
           "region": connection.region
         });
-      }
-      catch (e) {
+      } catch (e) {
+        
         e.message = e.message + ". Please make sure you added the right keys to your adapter config";
-        error = e;
+        return cb(e)
       }
-      // Keep a reference to this collection
-      _modelReferences = collections;
-      cb(error);
-    }
+      
+      // Keep a reference to these collections
+      _collectionReferences = collections;
+      
+      // Create Vogels models for the collections
+      _.forOwn(collections, function(coll, collName) {
+        adapter._createModel(collName);
+      });
+      
+      cb();
+    },
 
     /**
      * Fired when a model is unregistered, typically when the server
@@ -291,7 +353,8 @@ module.exports = (function () {
      *
      * @param  {Function} cb [description]
      * @return {[type]}      [description]
-     */, teardown: function (connection, cb) {
+     */
+    teardown: function (connection, cb) {
       cb();
     },
 
@@ -313,7 +376,7 @@ module.exports = (function () {
 //sails.log.silly("::model", adapter._getModel(collectionName));
 
       // If you need to access your private data for this collection:
-      var collection = _modelReferences[collectionName];
+      var collection = _collectionReferences[collectionName];
 
       if (!_definedTables[collectionName]) {
         var table = adapter._getModel(collectionName);
@@ -354,7 +417,7 @@ module.exports = (function () {
 //console.log("::collection",collectionName);
 
       // If you need to access your private data for this collection:
-      var collection = _modelReferences[collectionName];
+      var collection = _collectionReferences[collectionName];
 //console.log("::collection.definition",collection.definition);
 
       // Respond with the schema (attributes) for a collection or table in the data store
@@ -405,7 +468,7 @@ module.exports = (function () {
     drop: function (connection, collectionName, relations, cb) {
 //sails.log.silly("adaptor::drop", collectionName);
       // If you need to access your private data for this collection:
-      var collection = _modelReferences[collectionName];
+      var collection = _collectionReferences[collectionName];
 //sails.log.error('drop: not supported')
       // Drop a "table" or "collection" schema from the data store
       cb();
@@ -440,10 +503,11 @@ module.exports = (function () {
       //sails.log.silly("adaptor::find", collectionName);
       //sails.log.silly("::option", options);
 
-      var collection = _modelReferences[collectionName],
+      var collection = _collectionReferences[collectionName],
         model = adapter._getModel(collectionName),
         query = null,
         hashKey = null;
+        
       // Options object is normalized for you:
       //
       // options.where
@@ -456,6 +520,7 @@ module.exports = (function () {
       // If no matches were found, this will be an empty array.
 
       if (options && 'where' in options && _.isObject(options.where)) {
+        
         var primaryKeys = adapter._getPrimaryKeys(collectionName),
           modelIndexes = adapter._indexes(collectionName),
           modelKeys = adapter._keys(collectionName);
@@ -464,81 +529,57 @@ module.exports = (function () {
 
         // get current condition
         var wheres = _.keys(options.where);
-        // compare both of keys
-        var primaryQuery = _.intersection(primaryKeys, wheres);
-        var indexQuery = _.intersection(modelIndexes, wheres);
-
-        if (primaryQuery.length > 0 && wheres.length < 2) {
-          hashKey = primaryKeys[0];
-          if (!_.isArray(options.where[hashKey])) {
-            query = model.query(options.where[hashKey]);
-            //sails.log.silly('using PK ' + hashKey)
-            options.where = _.without(options.where, hashKey);
-          }
-        }
-        else if (indexQuery.length > 0 && wheres.length < 2) {
-          hashKey = indexQuery[0];
-          query = model.query(options.where[hashKey]).usingIndex(hashKey + adapter.indexPrefix);
-          //sails.log.silly('using index ' + wheres[0] + adapter.indexPrefix);
-          delete options.where[hashKey];
-        }
-
-        // scan mode
+        
+        var indexing = adapter._whichIndex(collectionName, wheres);
+        var hash = indexing.hash;
+        var range = indexing.range;
+        var indexName = indexing.index;
+        
         var scanning = false;
-        if (!query) {
+        if (indexing) {
+          
+          query = model.query(options.where[hash])
+          delete options.where[hash];
+          
+          if (indexName) {
+            query.usingIndex(indexName);
+          }
+          
+          if (range) {
+            adapter._applyQueryFilter(query, 'where', range, options.where[range]);
+            delete options.where[range];
+          }          
+          
+        } else {
+          
           scanning = true;
           query = model.scan();
-          //sails.log.silly('using scan() ');
         }
 
+        var queryOp = scanning ? 'where' : 'filter';
+        
         for (var key in options.where) {
           
           // Using startKey?
           if (key == 'startKey') {
+            
             try {
+              
               query.startKey(JSON.parse(options.where[key]));
-            }
-            catch (e) {
+            } catch (e) {
+              
               return cb("Wrong start key format :" + e.message);
             }
-            continue;
+            
+          } else {
+            adapter._applyQueryFilter(query, queryOp, key, options.where[key]);
           }
-          
-          // Okay, in the case that we're not scanning,
-          // we need to use where for the range and filter for other stuff
-          var queryOp = (primaryKeys[1] == key || scanning) ? 'where' : 'filter';
-          
-          if (modelKeys.indexOf(key) === -1) {
-            return cb("Wrong attribute given : " + key);
-          }
-          var filter = _.keys(options.where[key])[0];
-          if (filter in filters) {
-            try {
-              query[queryOp](key)[filter](filters[filter] ? options.where[key][filter] : null);
-            }
-            catch (e) {
-              return cb(e.message);
-            }
-          }
-          else {
-            try {
-              if (_.isString(options.where[key]) || _.isNumber(options.where[key])) {
-                query[queryOp](key).equals(options.where[key]);
-                continue;
-              }
-              else if (_.isArray(options.where[key])) {
-                query[queryOp](key).in(options.where[key]);
-                continue;
-              }
-            }
-            catch (e) {
-              return cb(e.message);
-            }
-            return cb("Wrong filter given :" + filter);
-          }
+                    
         }
       }
+      
       query = adapter._searchCondition(query, options, model);
+      
       query.exec(function (err, res) {
         if (!err) {
           //console.log("success", adapter._resultFormat(res));
@@ -553,22 +594,204 @@ module.exports = (function () {
 
       // Respond with an error, or the results.
 //      cb(null, []);
-    }/**
+    },
+    
+    _applyQueryFilter: function(query, op, key, condition) {
+      
+        try {
+          
+          if (_.isString(condition) || _.isNumber(condition)) {
+            
+            query[queryOp](key).equals(condition);
+            
+          } else if (_.isArray(condition)) {
+            
+            query[queryOp](key).in(condition);
+            
+          } else if (_.isObject(condition)) {
+            
+            var filter = _.keys(condition)[0];
+            
+            if (filter in filters) {
+              
+              query[op](key)[filter](filters[filter] ? condition[filter] : null);
+              
+            } else {
+              
+              return cb(new Error("Wrong filter given :" + filter));
+            }
+            
+          } else {
+            return cb(new Error("Wrong filter given :" + filter));
+          }
+          
+        } catch (e) {
+          
+          return cb(e.message);
+        }
+                      
+    },
+    
+    // Return {index: 'name', hash: 'field1', range:'field2'}
+    // Primary hash and range > primary hash and secondary range > global secondary hash and range
+    // > primary hash > global secondary hash > no index/primary
+    _whichIndex: function(collectionName, fields) {
+      
+      var columns = _collectionReferences[collectionName].definition;
+      
+      var primaryHash         = false;
+      var primaryRange        = false;
+      var secondaryRange      = false;
+      var globalHash          = false;
+      var globalRange         = false;
+      
+      var globalIndexName;
+      
+      // holds all index info from fields
+      var indices = {};
+      
+      // temps for loop
+      var fieldName;
+      var column;
+      var indexInfo;
+      var indexName;
+      var indexType;
+      for (var i = 0; i < fields.length; i++) {
+        
+        fieldName = fields[i];
+        column = columns[fieldName];
+        
+        // set primary hash
+        if (column.primaryKey && column.primaryKey === true || column.primaryKey === 'hash') {
+          primaryHash = fieldName;
+          continue;
+        }
+        
+        // set primary range
+        if (column.primaryKey && column.primaryKey === 'range') {
+          primaryRange = fieldName;
+          continue;
+        }
+        
+        // set secondary range
+        if (column.index && column.index === 'secondary') {
+          secondaryRange = fieldName;
+          continue;
+        }
+        
+        // build global secondary hash info
+        if (column.index && column.index !== 'secondary') {
+          
+          indexInfo = adapter._parseIndex(column.index);
+          indexName = indexInfo[0];
+          indexType = indexInfo[1];
+          
+          if (typeof indices[indexName] === 'undefined') {
+            indices[indexName] = {};
+          }
+          
+          indices[indexName][indexType] = fieldName;
+          
+          continue;
+        }
+        
+      }
+      
+      // set global secondary hash info
+      var indicesHashed;
+      var indicesRanged;
+      
+      // pick out those with just a hash key
+      var indicesHashed = _.pick(indices, function(ind) {
+        return !!ind.hashKey && !ind.rangeKey;
+      });
+      
+      // pick out those with a hash and a range key
+      var indicesRanged = _.pick(indices, function(ind) {
+        return !!ind.hashKey && !!ind.rangeKey;
+      });
+      
+      // found a good ranged global secondary index?
+      if (!_.isEmpty(indicesRanged)) {
+        
+        globalIndexName = Object.keys(indicesRanged)[0];
+        globalHash  = indicesRanged[globalIndexName].hashKey;
+        globalRange = indicesRanged[globalIndexName].rangeKey;
+        
+      } else if (!_.isEmpty(indicesHashed)) {
+        
+        globalIndexName = Object.keys(indicesHashed)[0];
+        globalHash = indicesHashed[globalIndexName].hashKey;
+        
+      }
+      
+      if (primaryHash && primaryRange) {
+        
+        return {
+          index: 'primary',
+          hash:  primaryHash,
+          range: primaryRange
+        }
+        
+      } else if (primaryHash && secondaryRange) {
+        
+        return {
+          index: secondaryRange+'Index', // per Vogels
+          hash:  primaryHash,
+          range: secondaryRange
+        }
+        
+      } else if (globalHash && globalRange) {
+        
+        return {
+          index: globalIndexName,
+          hash:  globalHash,
+          range: globalRange
+        }
+        
+      } else if (primaryHash) {
+        
+        return {
+          index: 'primary',
+          hash:  primaryHash
+        }
+        
+      } else if (globalHash) {
+        
+        return {
+          index: globalIndexName,
+          hash:  globalHash
+        }
+        
+      } else {
+        
+        return false;
+      }
+      
+    },
+    
+    /**
      * search condition
      * @param query
      * @param options
      * @returns {*}
      * @private
-     */, _searchCondition: function (query, options, model) {
+     */
+    _searchCondition: function (query, options, model) {
+      
       if (!query) {
         query = model.scan();
       }
+      
       if (!options) {
         return query;
       }
+      
       if ('sort' in options) {
+        
         //according to http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_Query.html#DDB-Query-request-ScanIndexForward
         var sort = _.keys(options.sort)[0];
+        
         if (sort == 1) {
           query.ascending();
         }
@@ -576,14 +799,17 @@ module.exports = (function () {
           query.descending();
         }
       }
+      
       if ('limit' in options) {
+        
         query.limit(options.limit);
-      }
-      else {
+      } else {
+        
         query.loadAll();
       }
-      return query
-    }
+      
+      return query;
+    },
 
 
 
@@ -595,7 +821,7 @@ module.exports = (function () {
      * @param  {[type]}   values         [description]
      * @param  {Function} cb             [description]
      * @return {[type]}                  [description]
-     */, create: function (connection, collectionName, values, cb) {
+     */create: function (connection, collectionName, values, cb) {
 //sails.log.silly("adaptor::create", collectionName);
 //sails.log.silly("values", values);
 //console.log("collection", _modelReferences[collectionName]);
@@ -603,7 +829,7 @@ module.exports = (function () {
       var Model = adapter._getModel(collectionName);
 
       // If you need to access your private data for this collection:
-      var collection = _modelReferences[collectionName];
+      var collection = _collectionReferences[collectionName];
       adapter._valueEncode(collection.definition, values);
 
       // Create a single new model (specified by `values`)
@@ -642,7 +868,7 @@ module.exports = (function () {
       var Model = adapter._getModel(collectionName);
 
       // If you need to access your private data for this collection:
-      var collection = _modelReferences[collectionName];
+      var collection = _collectionReferences[collectionName];
       adapter._valueEncode(collection.definition, values);
 
       // id filter (bug?)
@@ -693,7 +919,7 @@ module.exports = (function () {
       var Model = adapter._getModel(collectionName);
 
       // If you need to access your private data for this collection:
-      var collection = _modelReferences[collectionName];
+      var collection = _collectionReferences[collectionName];
 
 
       // 1. Filter, paginate, and sort records from the datastore.
@@ -721,7 +947,7 @@ module.exports = (function () {
       }
       else
         cb();
-    }
+    },
 
 
 
@@ -820,9 +1046,23 @@ module.exports = (function () {
      * @param name    column name
      * @param attr    columns detail
      * @private
-     */, _setColumnType: function (schema, name, attr, options) {
+     */
+     _setColumnType: function (schema, name, attr, options) {
+      
       options = (typeof options !== 'undefined') ? options : {};
-
+      
+      // Set primary key options
+      if (attr.primaryKey === 'hash') {
+        
+        _.merge(options, {hashKey: true});
+      } else if (attr.primaryKey === 'range') {
+        
+        _.merge(options, {rangeKey: true});
+      } else if (attr.index === 'secondary') {
+        
+        _.merge(options, {secondaryIndex: true});
+      }
+      
       // set columns
 //          console.log("name:", name);
 //          console.log("attr:", attr);
