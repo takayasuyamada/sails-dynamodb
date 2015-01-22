@@ -868,7 +868,8 @@ module.exports = (function () {
 //sails.log.silly("::options", options);
 //sails.log.silly("::values", values);
       var Model = adapter._getModel(collectionName);
-
+      var primaryKeys = adapter._getPrimaryKeys(collectionName);
+      
       // If you need to access your private data for this collection:
       var collection = _collectionReferences[collectionName];
       adapter._valueEncode(collection.definition, values);
@@ -887,10 +888,26 @@ module.exports = (function () {
       // 2. Update all result records with `values`.
       //
       // (do both in a single query if you can-- it's faster)
-      var updateValues = _.assign(options.where, values);
+      
+      // Move primary keys to values (Vogels-style) so rest of wheres can be used for expected clause.
+      // Actually, seems like the primary key has to stay in the wheres so as not to create a new item.
+      var primaryKeyName;
+      for (var i = 0; i < primaryKeys.length; i++) {
+        
+        primaryKeyName = primaryKeys[i];
+        
+        if (options.where[primaryKeyName]) {
+          values[primaryKeyName] = options.where[primaryKeyName];
+        }
+        
+      }
+      
+      var vogelsOptions = !_.isEmpty(options.where) ? { expected: options.where } : {};
+      
 //console.log(updateValues);
-      var current = Model.update(updateValues, function (err, res) {
+      Model.update(values, vogelsOptions, function (err, res) {
         if (err) {
+          ConditionalCheckFailedException
           //sails.log.error('Error update data' + __filename, err);
           cb(err);
         }
