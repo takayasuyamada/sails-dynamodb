@@ -142,7 +142,7 @@ module.exports = (function () {
       var collection = _collectionReferences[collectionName];
 
       // Attrs with primaryKeys
-      var primaryKeys = _.filter(collection.definition, function(attr) { return !!attr.primaryKey } );
+      var primaryKeys = _.pick(collection.definition, function(attr) { return !!attr.primaryKey } );
       var primaryKeyNames =_.keys(primaryKeys);
       
       if (primaryKeyNames.length < 1 || primaryKeyNames.length > 2) {
@@ -291,11 +291,11 @@ module.exports = (function () {
         
         indexName = columnName;
         indexType = 'hashKey';
-      } else if (strEndsWith(index, '-hash')) {
+      } else if (stringEndsWith(index, '-hash')) {
         
         indexName = removeSuffixFromString(index, '-hash');
         indexType = 'hashKey';
-      } else if (strEndsWith(index, '-range')) {
+      } else if (stringEndsWith(index, '-range')) {
         
         indexName = removeSuffixFromString(index, '-range');
         indexType = 'rangeKey';                
@@ -506,7 +506,7 @@ module.exports = (function () {
       var collection = _collectionReferences[collectionName],
         model = adapter._getModel(collectionName),
         query = null,
-        hashKey = null;
+        error;
         
       // Options object is normalized for you:
       //
@@ -521,10 +521,6 @@ module.exports = (function () {
 
       if (options && 'where' in options && _.isObject(options.where)) {
         
-        var primaryKeys = adapter._getPrimaryKeys(collectionName),
-          modelIndexes = adapter._indexes(collectionName),
-          modelKeys = adapter._keys(collectionName);
-
         query = null;
 
         // get current condition
@@ -546,7 +542,10 @@ module.exports = (function () {
           }
           
           if (range) {
-            adapter._applyQueryFilter(query, 'where', range, options.where[range]);
+            
+            error = adapter._applyQueryFilter(query, 'where', range, options.where[range]);
+            if (error) return cb(error);
+            
             delete options.where[range];
           }          
           
@@ -572,7 +571,9 @@ module.exports = (function () {
             }
             
           } else {
-            adapter._applyQueryFilter(query, queryOp, key, options.where[key]);
+            
+            error = adapter._applyQueryFilter(query, queryOp, key, options.where[key]);
+            if (error) return cb(error);
           }
                     
         }
@@ -602,11 +603,11 @@ module.exports = (function () {
           
           if (_.isString(condition) || _.isNumber(condition)) {
             
-            query[queryOp](key).equals(condition);
+            query[op](key).equals(condition);
             
           } else if (_.isArray(condition)) {
             
-            query[queryOp](key).in(condition);
+            query[op](key).in(condition);
             
           } else if (_.isObject(condition)) {
             
@@ -618,16 +619,17 @@ module.exports = (function () {
               
             } else {
               
-              return cb(new Error("Wrong filter given :" + filter));
+              throw new Error("Wrong filter given :" + filter);
             }
             
           } else {
-            return cb(new Error("Wrong filter given :" + filter));
+            
+            throw new Error("Wrong filter given :" + filter);
           }
           
         } catch (e) {
           
-          return cb(e.message);
+          return e;
         }
                       
     },
