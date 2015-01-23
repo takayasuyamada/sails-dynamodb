@@ -154,7 +154,13 @@ module.exports = (function () {
         collection.definition[primaryKeyNames[0]].primaryKey = 'hash';
       }
       
-      var vogelsModel = Vogels.define(collectionName, function (schema) {
+      // Vogels adds an 's'.  So let's remove an 's'.
+      var vogelsCollectionName  = collectionName[collectionName.length-1] === 's' ?
+      
+                                      collectionName.slice(0, collectionName.length-1) :
+                                      collectionName;
+      
+      var vogelsModel = Vogels.define(vogelsCollectionName, function (schema) {
         
         var columns = collection.definition;
         
@@ -906,7 +912,6 @@ module.exports = (function () {
       
 //console.log(updateValues);
       Model.update(values, vogelsOptions, function (err, res) {
-        
         if (err) {
           
           //sails.log.error('Error update data' + __filename, err);
@@ -923,10 +928,9 @@ module.exports = (function () {
         } else {
 //                console.log('add model data',res.attrs);
           adapter._valueDecode(collection.definition, res.attrs);
-          // Respond with error or the newly-updated record.
+          // Respond with error or the newly-created record.
           cb(null, [res.attrs]);
         }
-        
       });
 
       // Respond with error or an array of updated records.
