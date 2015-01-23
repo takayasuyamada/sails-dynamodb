@@ -906,17 +906,27 @@ module.exports = (function () {
       
 //console.log(updateValues);
       Model.update(values, vogelsOptions, function (err, res) {
+        
         if (err) {
-          ConditionalCheckFailedException
+          
           //sails.log.error('Error update data' + __filename, err);
-          cb(err);
-        }
-        else {
+          
+          // Deal with AWS's funny way of telling us it couldnt update that item
+          if (err.code == 'ConditionalCheckFailedException') {
+            
+            cb(null, []);
+          } else {
+            
+            cb(err);
+          }
+          
+        } else {
 //                console.log('add model data',res.attrs);
           adapter._valueDecode(collection.definition, res.attrs);
-          // Respond with error or the newly-created record.
+          // Respond with error or the newly-updated record.
           cb(null, [res.attrs]);
         }
+        
       });
 
       // Respond with error or an array of updated records.
