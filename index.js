@@ -186,7 +186,7 @@ module.exports = (function () {
               
               index = attributes.index;
               
-              indexParts = adapter._parseIndex(index);
+              indexParts = adapter._parseIndex(index, columnName);
               indexName = indexParts[0];
               indexType = indexParts[1];
               
@@ -266,7 +266,7 @@ module.exports = (function () {
       
     },
 
-    _parseIndex: function(index) {
+    _parseIndex: function(index, columnName) {
       
       // Two helpers
       var stringEndsWith = function(str, needle) {
@@ -690,7 +690,7 @@ module.exports = (function () {
         // build global secondary hash info
         if (column.index && column.index !== 'secondary') {
           
-          indexInfo = adapter._parseIndex(column.index);
+          indexInfo = adapter._parseIndex(column.index, fieldName);
           indexName = indexInfo[0];
           indexType = indexInfo[1];
           
