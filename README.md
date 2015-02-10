@@ -72,14 +72,18 @@ Support for where is added as following:
 
 ### Pagination
 Support for Pagination is added as following:
+
 1. First add a limit to current request
-```
-  /user?limit=2
-```
+
+    ```
+/user?limit=2
+    ```
+    
 2. Then get the last primaryKey value and send it as startKey in the next request
-```
-  /user?limit=2&startKey={"PrimaryKey": "2"}
-```
+
+    ```
+/user?limit=2&startKey={"PrimaryKey": "2"}
+    ```
 
 ## Using DynamoDB Indexes
 Primary hash/range keys, local secondary indexes, and global secondary indexes are currently supported by this adapter, but their usage is always inferred from query conditions–`Model.find` will attempt to use the most optimal index using the following precedence:
