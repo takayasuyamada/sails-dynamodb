@@ -543,7 +543,7 @@ module.exports = (function () {
           query = model.query(options.where[hash])
           delete options.where[hash];
           
-          if (indexName) {
+          if (indexName && indexName != 'primary') {
             query.usingIndex(indexName);
           }
           
