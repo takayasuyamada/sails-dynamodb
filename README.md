@@ -106,7 +106,7 @@ GameTitle: {
 }
 ```
 #### Secondary range (local secondary index)
-The index name used for a local secondary index is the name of the field.  In this case the index name is `Time`.
+The index name used for a local secondary index is the name of the field suffixed by "Index".  In this case the index name is `TimeIndex`.
 ```
 Time: {
   type: 'datetime',
