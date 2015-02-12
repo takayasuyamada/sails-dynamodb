@@ -95,9 +95,10 @@ module.exports = (function () {
   var adapter = {
 
     identity: 'sails-dynamodb',
-    keyId: "id",
-    indexPrefix: "-Index",
-
+    pkFormat: 'string',
+    
+    keyId: 'id',
+    
     // Set to true if this adapter supports (or requires) things like data types, validations, keys, etc.
     // If true, the schema for models using this adapter will be automatically synced when the server starts.
     // Not terribly relevant if your data store is not SQL/schemaful.
@@ -1127,6 +1128,17 @@ module.exports = (function () {
 //              case "json":
 //              case "string":
 //              case "binary":
+        case "string":
+          
+          if (attr.autoIncrement) {
+            
+            schema.UUID(name, options);
+          } else {
+            
+            schema.String(name, options);
+          }
+          break;
+          
         default:
 //                  console.log("Set String", name);
           schema.String(name, options);
