@@ -70,17 +70,64 @@ Support for where is added as following:
   ?where={"name":{"between":["firstName, "lastName""]}}
 ```
 
-
-## Pagination
+### Pagination
 Support for Pagination is added as following:
+
 1. First add a limit to current request
-```
-  /user?limit=2
-```
+
+    ```
+/user?limit=2
+    ```
+    
 2. Then get the last primaryKey value and send it as startKey in the next request
+
+    ```
+/user?limit=2&startKey={"PrimaryKey": "2"}
+    ```
+
+## Using DynamoDB Indexes
+Primary hash/range keys, local secondary indexes, and global secondary indexes are currently supported by this adapter, but their usage is always inferred from query conditions–`Model.find` will attempt to use the most optimal index using the following precedence:
 ```
-  /user?limit=2&startKey={"PrimaryKey": "2"}
+Primary hash and range > primary hash and secondary range > global secondary hash and range
+> primary hash > global secondary hash > no index/primary
 ```
+If an index is being used and there are additional query conditions, then results are compiled using DynamoDB's result filtering.  If no index can be used for a query, then the adapter will perform a scan on the table for results.
+
+### Adding Indexes
+#### Primary hash and primary range
+```
+UserId: {
+  type: 'integer',
+  primaryKey: 'hash'
+},
+GameTitle: {
+  type: 'string',
+  primaryKey: 'range'
+}
+```
+#### Secondary range (local secondary index)
+The index name used for a local secondary index is the name of the field suffixed by "Index".  In this case the index name is `TimeIndex`.
+```
+Time: {
+  type: 'datetime',
+  index: 'secondary'
+}
+```
+#### Global secondary index
+The index name used for a global secondary index is specified in the `index` property before the type of key (`hash` or `range`).  In this case the index name is `GameTitleIndex`.
+```
+GameTitle: {
+  type: 'string',
+  index: 'GameTitleIndex-hash'
+},
+HighScore: {
+  type: 'integer',
+  index: 'GameTitleIndex-range'
+}
+```
+
+## Update
+The `Model.update` method is currently expected to update exactly one item since DynamoDB only offers an [UpdateItem](http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_UpdateItem.html) endpoint.  A complete primary key must be supplied.  Any additional "where" conditions passed to `Model.update` are used to build a conditional expression for the update.  Despite the fact the DynamoDB updates only one item, `Model.update` will always return an array of the (one or zero) updated items upon success.
 
 ## Testing
 
