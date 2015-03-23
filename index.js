@@ -11,6 +11,7 @@ var Vogels = require('vogels');
 var AWS = Vogels.AWS;
 var _ = require('lodash');
 var DynamoDB = false;
+utils = require('./lib/utils');
 var filters = {
   //?where={"name":{"null":true}}
   null: false,
@@ -104,7 +105,8 @@ module.exports = (function () {
     // Not terribly relevant if your data store is not SQL/schemaful.
     
     // This doesn't make sense for dynamo, where the schema parts are locked-down during table creation.
-    syncable: false,
+    //syncable: false,
+    syncable: true,
 
 
     // Default configuration for collections
@@ -518,6 +520,7 @@ module.exports = (function () {
         query = null,
         error;
         
+      console.log("collection in find = %o", collection);
       // Options object is normalized for you:
       //
       // options.where
