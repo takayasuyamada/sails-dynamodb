@@ -134,7 +134,8 @@ module.exports = (function () {
       // safe   => Don't change anything (good for production DBs)
       
       //Indices currently never change in dynamo
-      migrate: 'safe',
+      //migrate: 'safe',
+      migrate: 'alter',
 //    schema: false
     },
     
