@@ -153,6 +153,8 @@ module.exports = (function () {
       // One primary key, then it's a hash
       if (primaryKeyNames.length == 1) {
         collection.definition[primaryKeyNames[0]].primaryKey = 'hash';
+        // set pkFormat
+        collection.definition[primaryKeyNames[0]].type = adapter.pkFormat;
       }
       
       // Vogels adds an 's'.  So let's remove an 's'.
