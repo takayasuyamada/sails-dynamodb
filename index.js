@@ -520,7 +520,6 @@ module.exports = (function () {
         query = null,
         error;
         
-      console.log("collection in find = %o", collection);
       // Options object is normalized for you:
       //
       // options.where
