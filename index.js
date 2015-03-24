@@ -11,7 +11,7 @@ var Vogels = require('vogels');
 var AWS = Vogels.AWS;
 var _ = require('lodash');
 var DynamoDB = false;
-utils = require('./lib/utils');
+//var utils = require('./lib/utils');
 var filters = {
   //?where={"name":{"null":true}}
   null: false,
